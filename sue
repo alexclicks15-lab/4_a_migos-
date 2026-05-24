@@ -1,0 +1,262 @@
+[33m3420252[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: antigravity issue
+[33m4239955[m Merge pull request #135 from ArnasDon/docs/changelog
+[33mf40c6be[m docs: changelog for 0.2.0 (Flows + color themes + soft-GA)
+[33m515cf64[m Merge pull request #134 from ArnasDon/feat/flows-open-to-all
+[33m4e89b2b[m feat(flows): soft-GA — open to all users + Beta label
+[33mf3ccb00[m Merge pull request #133 from ArnasDon/feat/color-themes-full-sweep
+[33m32022c1[m feat(theme): sweep remaining violet-* → primary across all surfaces
+[33mdc3eac3[m Merge pull request #132 from ArnasDon/feat/color-themes
+[33m54a969c[m feat(settings): color theme picker (5 themes)
+[33m39b03f1[m Merge pull request #131 from ArnasDon/fix/flows-dialog-actually-wider
+[33mdf6c8e3[m fix(flows): create-flow dialog was still clamped to 384px — override sm: variant
+[33m6522b9b[m Merge pull request #130 from ArnasDon/fix/flows-sticky-validation
+[33m47836d2[m fix(flows): pin validation panel to viewport bottom while editing
+[33m87560e5[m Merge pull request #129 from ArnasDon/fix/flows-template-dialog-readability
+[33ma6cc847[m fix(flows): widen create-flow dialog so template cards are readable
+[33m9febfae[m Merge pull request #128 from ArnasDon/fix/flows-spurious-redirect
+[33m6fcf77d[m fix(flows): bounce-to-dashboard race when navigating into /flows
+[33m1a6419b[m Merge pull request #127 from ArnasDon/feat/flows-cron-timing-safe
+[33mce9c792[m Merge pull request #126 from ArnasDon/feat/flows-drop-reread-and-limit
+[33mdcaba6e[m Merge remote-tracking branch 'origin/main' into feat/flows-drop-reread-and-limit
+[33mfe4e011[m fix(flows): constant-time compare for cron secret
+[33m56ec96d[m perf(flows): drop wasted re-read after reprompt reset + defensive limit(1)
+[33m8ffb043[m Merge pull request #125 from ArnasDon/feat/flows-preload-nodes
+[33mdc58f71[m perf(flows): preload all flow_nodes once per dispatch
+[33m4b36813[m Merge pull request #124 from ArnasDon/feat/flows-atomic-execution-count
+[33me835386[m fix(flows): atomic execution_count increment via SECURITY DEFINER RPC
+[33m551a857[m Merge pull request #123 from ArnasDon/feat/flows-redact-reply-text
+[33m8ac764e[m fix(flows): redact customer text from reply_received event payload
+[33m9ff4a8d[m Merge pull request #122 from ArnasDon/feat/flows-unsaved-changes-guard
+[33m31bd967[m Merge remote-tracking branch 'origin/main' into feat/flows-unsaved-changes-guard
+[33m323e0f0[m Merge pull request #121 from ArnasDon/feat/flows-clickable-validation-issues
+[33mad91d20[m feat(flows): unsaved-changes indicator + reload guard
+[33mb95ce8b[m Merge pull request #120 from ArnasDon/feat/flows-node-card-previews
+[33medbbb89[m feat(flows): make validation issues clickable to jump to node
+[33m9c7f635[m Merge pull request #119 from ArnasDon/feat/flows-send-list-add-section
+[33m6079bf2[m feat(flows): show content preview in collapsed node cards
+[33m5a9a69a[m feat(flows): add multi-section support to send_list builder
+[33m7227802[m Merge pull request #118 from ArnasDon/feat/flows-hide-internal-keys
+[33m268ae70[m feat(flows): hide internal node_key + reply_id behind Advanced disclosure
+[33m4cb6849[m Merge pull request #117 from ArnasDon/feat/flows-templates-and-v1.5
+[33med15493[m feat(flows): templates + v1.5 nodes (collect_input/condition/set_tag) + run-history viewer (PR 4/4)
+[33mf9d13c4[m Merge pull request #115 from ArnasDon/feat/flows-builder-ui
+[33m4871d7a[m feat(flows): no-code builder UI + flows API + validator (PR 3/4)
+[33m2c029cb[m Merge pull request #114 from ArnasDon/feat/flows-runner
+[33md0b50f4[m feat(flows): runner engine + webhook integration + agent-handoff + cron sweep (PR 2/4)
+[33m66ef059[m Merge pull request #112 from ArnasDon/feat/flows-foundation-interactive-messages
+[33m208b096[m chore(flows): defensive gate on interactive bubble render
+[33mdc245d5[m feat(flows): foundation for interactive WhatsApp messages (PR 1/4)
+[33m981a164[m Merge pull request #113 from ArnasDon/feat/beta-features-flag
+[33m9c4a46d[m feat(beta): per-account beta_features flag on profiles, gating Flows
+[33ma701d93[m Merge pull request #111 from ArnasDon/feat/inbox-doodle-background
+[33m598ac7e[m feat(inbox): WhatsApp-style doodle background in the chat area
+[33mf758a3e[m Merge pull request #109 from ArnasDon/feat/inbox-manual-refresh-button
+[33mc35f2a1[m feat(inbox): add a refresh button to the conversation header
+[33m2b3393b[m Merge pull request #108 from ArnasDon/fix/inbox-unread-badge-clears-on-select
+[33m4e3bb70[m fix(inbox): clear unread badge instantly when opening a conversation
+[33m3de2da6[m Merge pull request #107 from ArnasDon/fix/inbox-realtime-permanent
+[33m138ae8d[m fix(inbox): replace broken updater-closure flag, add reconnect/visibility resync
+[33maecad2e[m Merge pull request #105 from ArnasDon/fix/inbox-realtime-hydrate-new-conversations
+[33m206e110[m fix(inbox): hydrate new conversations from realtime so they surface in the list
+[33mcac97fe[m Merge pull request #103 from ArnasDon/docs/deploy-on-hostinger-button
+[33m4ed9faf[m docs: add Deploy on Hostinger button to README
+[33me84f741[m Merge pull request #102 from ArnasDon/chore/changelog-migration-note
+[33mfaa128f[m docs: add CHANGELOG with migration-required note
+[33m3e9276b[m Merge pull request #101 from ArnasDon/feature/chat-action-fixes
+[33md41652d[m fix(inbox): scope hover to the bubble; fix stale-closure reaction flow
+[33ma1348eb[m Merge pull request #100 from ArnasDon/feature/chat-actions
+[33m339b1fe[m feat(inbox): reactions, reply-to, and copy on chat messages
+[33mbf14934[m Merge pull request #96 from ArnasDon/dependabot/npm_and_yarn/types-68ebe471cf
+[33m4e333af[m Merge pull request #97 from ArnasDon/dependabot/npm_and_yarn/dev-dependencies-4f40fd48be
+[33mfee1da3[m Merge pull request #98 from ArnasDon/dependabot/npm_and_yarn/tailwind-merge-3.6.0
+[33mee2af6d[m Merge pull request #95 from ArnasDon/dependabot/npm_and_yarn/supabase-10427234a2
+[33mc718c62[m chore(deps): bump tailwind-merge from 3.5.0 to 3.6.0
+[33m0926dde[m chore(deps-dev): bump the dev-dependencies group with 2 updates
+[33m24989d4[m chore(deps-dev): bump @types/node in the types group
+[33m4bbb30f[m chore(deps): bump @supabase/supabase-js in the supabase group
+[33mfa01210[m Merge pull request #94 from ArnasDon/security/override-transitive-vulns
+[33m06ef8f2[m Override transitive vulns: postcss, ip-address, fast-uri, hono
+[33m66d9d9e[m Merge pull request #93 from ArnasDon/security/bump-next-16.2.6
+[33m742d9e0[m Bump next 16.2.4 → 16.2.6 (security)
+[33me80189e[m Merge pull request #92 from ArnasDon/test/foundational-vitest-suite
+[33mdb11f76[m test: foundational Vitest suite for security + critical pure logic
+[33m6820314[m Merge pull request #90 from ArnasDon/feat/inbox-template-picker
+[33mfbb95eb[m Merge branch 'main' of https://github.com/ArnasDon/wacrm into feat/inbox-template-picker
+[33m149a4e6[m Merge pull request #91 from ArnasDon/chore/remove-broadcast-schedule-stub
+[33mac55c74[m Merge pull request #89 from ArnasDon/fix/inbox-assign-button
+[33m8d83220[m chore(broadcasts): drop the inert Schedule for Later tile
+[33m2a86781[m feat(inbox): wire up the template picker dialog
+[33m5d0944e[m feat(inbox): wire conversation assignment dropdown
+[33m1e6d70a[m Merge pull request #88 from ArnasDon/chore/extract-marketing-site
+[33m15a05eb[m Extract marketing site to ArnasDon/wacrm-site
+[33ma501b95[m Merge pull request #79 from ArnasDon/dependabot/npm_and_yarn/typescript-6.0.3
+[33mf92b686[m Merge pull request #80 from ArnasDon/dependabot/npm_and_yarn/base-ui/react-1.4.1
+[33m8527c6a[m Merge pull request #87 from ArnasDon/dependabot/npm_and_yarn/supabase-cc07b7ee10
+[33maa9e954[m chore(deps): bump the supabase group across 1 directory with 2 updates
+[33ma54a737[m Merge pull request #77 from ArnasDon/dependabot/npm_and_yarn/types/node-25.6.0
+[33mc98d382[m Merge pull request #74 from ArnasDon/dependabot/github_actions/actions/checkout-6
+[33m3e06698[m Merge pull request #75 from ArnasDon/dependabot/github_actions/actions/setup-node-6
+[33m9bdbfea[m Merge pull request #86 from ArnasDon/chore/footer-trademark-disclaimer
+[33m280e5b8[m Merge pull request #85 from ArnasDon/chore/whatsapp-trademark-symbol
+[33m1f2849d[m Merge remote-tracking branch 'origin/main' into chore/whatsapp-trademark-symbol
+[33mf44c123[m Merge pull request #84 from ArnasDon/chore/hostinger-accent-palette
+[33m4bb157c[m Merge remote-tracking branch 'origin/main' into chore/hostinger-accent-palette
+[33m9843fb8[m Merge pull request #83 from ArnasDon/chore/rename-crm-template-for-whatsapp
+[33mc3dde01[m chore: add Meta trademark / non-affiliation disclaimer to public footers
+[33me46844d[m chore: add WhatsApp® on first mention across user-facing surfaces
+[33m77dfa4f[m chore: switch accent palette to Hostinger violet, drop emerald green
+[33mfaee4ee[m chore: rename product to "CRM Template for WhatsApp"
+[33mea0af2f[m Merge pull request #82 from ArnasDon/chore/fix-lint-backlog
+[33m047b981[m ci: clear lint error backlog, drop continue-on-error on lint step
+[33m93158f4[m Merge pull request #81 from ArnasDon/docs/readme-arch-alt-hosts
+[33ma9df9cd[m docs: drop alternative-hosts page, keep Hostinger as the only path
+[33m7cd0f46[m docs: README polish + architecture + alt hosts
+[33m59be9c7[m chore(deps): bump @base-ui/react from 1.4.0 to 1.4.1
+[33m869222a[m chore(deps-dev): bump typescript from 5.9.3 to 6.0.3
+[33m46bf366[m chore(deps-dev): bump @types/node from 20.19.39 to 25.6.0
+[33mee7f7a8[m chore(deps): bump actions/setup-node from 4 to 6
+[33md8b6b86[m chore(deps): bump actions/checkout from 4 to 6
+[33m9c25971[m Merge pull request #73 from ArnasDon/chore/contributor-experience
+[33m45574ec[m chore: reframe contributor docs fork-first
+[33m3799c22[m chore: contributor experience — CoC, templates, Dependabot, editor configs
+[33m1965075[m Merge pull request #72 from ArnasDon/chore/oss-metadata
+[33mbce345e[m chore: OSS metadata + LICENSE + SECURITY + complete env example
+[33md6a4677[m Merge pull request #71 from ArnasDon/security/encrypt-aes-gcm
+[33me570e1a[m security: switch WhatsApp token encryption from AES-CBC to AES-GCM
+[33m7182abe[m Merge pull request #70 from ArnasDon/fix/inbox-messages-stale-after-deeplink
+[33m6cceb81[m fix(inbox): don't drop messages when ?c= URL param updates
+[33m460b5bf[m Merge pull request #69 from ArnasDon/security/rate-limit-send-broadcast
+[33m1f295a8[m security: rate-limit send and broadcast per user
+[33m185df34[m Merge pull request #68 from ArnasDon/fix/composer-alignment
+[33ma90ae1d[m fix(inbox): align composer send and template buttons with the textarea
+[33m1707aea[m Merge pull request #67 from ArnasDon/security/baseline-headers
+[33mf199b7a[m security: baseline response headers (CSP report-only + OWASP set)
+[33mfa257e0[m Merge pull request #66 from ArnasDon/ci/pr-checks
+[33m2f88498[m ci: typecheck + build on every PR
+[33m8309b2a[m Merge pull request #65 from ArnasDon/fix/webhook-fail-closed
+[33mbe7edfd[m fix(webhook): require META_APP_SECRET, fail closed
+[33m0b8377d[m Merge pull request #64 from ArnasDon/feat/profile-management
+[33m72a5e4c[m feat(settings): user profile management
+[33mc2839e6[m Merge pull request #63 from ArnasDon/fix/drop-default-favicon
+[33mfe14d48[m fix(landing): drop hardcoded shortcut-icon pointing at removed favicon
+[33m27479e3[m fix(landing): drop leftover next.js favicon.ico
+[33mf7d5761[m Merge pull request #62 from ArnasDon/chore/require-code-owner-review
+[33m5f3486b[m chore: require Arnas as reviewer on every PR (CODEOWNERS)
+[33mc28e4ca[m Merge pull request #61 from ArnasDon/feat/docs-viewer
+[33m45fd2a9[m feat(docs): in-app docs viewer at /docs
+[33m9fc3eb7[m Merge pull request #60 from ArnasDon/fix/hostinger-managed-nodejs
+[33m029a20e[m fix(hostinger): recommend Managed Node.js Hosting, not VPS
+[33mf18adf3[m Merge pull request #59 from ArnasDon/docs/full-setup-guide
+[33m02d008b[m Merge pull request #58 from ArnasDon/feat/landing-open-source-section
+[33m7148c20[m docs: end-to-end self-host setup guide
+[33mdd65e53[m feat(landing): open-source + Hostinger deploy section
+[33m5a2d11e[m Merge pull request #57 from ArnasDon/fix/broadcasts-table-responsive
+[33m9173e8e[m Merge pull request #51 from ArnasDon/feat/mobile-automation-builder
+[33m9f4c34e[m Merge pull request #50 from ArnasDon/feat/mobile-pipelines-kanban
+[33ma7dec71[m Merge pull request #49 from ArnasDon/feat/mobile-inbox-single-pane
+[33m6a30858[m Merge pull request #56 from ArnasDon/feat/mobile-app-shell-reapply
+[33m8a43cc6[m feat(mobile): tiered columns on the broadcasts table
+[33m08eb6e1[m feat(mobile): app shell drawer + responsive header
+[33m6a38fce[m Merge pull request #55 from ArnasDon/fix/opengraph-image-build-crash
+[33m15e4b53[m feat(seo): full SEO pass (reapply with OG-image build fix)
+[33m3d90cc1[m Merge pull request #54 from ArnasDon/revert-47-feat/seo-pass
+[33madf78bb[m Revert "feat(seo): full SEO pass — metadata, structured data, sitemap, robots"
+[33mad6c5eb[m Merge pull request #53 from ArnasDon/revert-48-feat/mobile-app-shell
+[33maca0d3b[m Revert "feat(mobile): app shell drawer + responsive header"
+[33md913e6c[m Merge pull request #48 from ArnasDon/feat/mobile-app-shell
+[33m150b383[m feat(mobile): automation builder fits + flows on narrow screens
+[33m4d901e1[m feat(mobile): snap-scroll kanban board with viewport-sized columns
+[33m7612e6c[m feat(mobile): inbox single-pane flow on phone, unchanged on desktop
+[33m73ae399[m feat(mobile): app shell drawer + responsive header
+[33mf223d5b[m Merge pull request #47 from ArnasDon/feat/seo-pass
+[33mc2587f7[m feat(seo): full SEO pass — metadata, structured data, sitemap, robots
+[33mba08d0b[m Merge pull request #46 from ArnasDon/feat/marketing-landing-page
+[33md5d406f[m feat(marketing): full public landing page at /
+[33m221afce[m Merge pull request #45 from ArnasDon/fix/dashboard-chart-hover-precision
+[33m2aa3c50[m fix(dashboard): precise hover on the conversations-over-time chart
+[33meb8d0b3[m Merge pull request #44 from ArnasDon/fix/dashboard-activity-feed-pagination
+[33mb1eb02f[m Merge pull request #43 from ArnasDon/fix/dashboard-pipeline-card-height
+[33m96debd1[m fix(dashboard): paginate recent activity feed with a size picker
+[33m2954123[m fix(dashboard): pipeline card stretches to match the chart row height
+[33m3e02098[m Merge pull request #42 from ArnasDon/feat/dashboard-analytics
+[33med66942[m feat(dashboard): replace placeholder with real analytics
+[33m5be2bad[m Merge pull request #41 from ArnasDon/fix/automations-validate-step-config-on-activate
+[33m348dbb7[m Merge pull request #40 from ArnasDon/fix/automations-atomic-execution-counter
+[33m98751b8[m Merge pull request #39 from ArnasDon/fix/automations-welcome-template-uses-first-inbound
+[33m3758711[m Merge pull request #38 from ArnasDon/fix/automations-meta-send-contact-ownership
+[33m53bb056[m Merge pull request #37 from ArnasDon/fix/automations-template-param-ordering
+[33m570fc12[m fix(automations): reject activation of invalid step/trigger config
+[33m635b5c1[m fix(automations): atomic execution_count via SQL function (migration 007)
+[33ma3d59d8[m fix(automations): Welcome Message template uses first_inbound_message
+[33m4afa9be[m fix(automations): scope meta-send contact lookup by user_id
+[33mf25f20e[m fix(automations): order send_template params numerically, not lexicographically
+[33m59d0ea6[m Merge pull request #36 from ArnasDon/fix/inbox-unread-indicator
+[33m5943c59[m Merge pull request #35 from ArnasDon/fix/dashboard-deep-link-to-conversation
+[33mbd62322[m Merge pull request #34 from ArnasDon/fix/builder-dropdown-width
+[33mc2ef80c[m fix(inbox): reliable unread reset + sidebar green-dot indicator
+[33m03c5390[m fix(dashboard): open the clicked conversation when deep-linking from dashboard
+[33mad7137e[m fix(automations): widen step-picker dropdown so labels don't wrap
+[33ma5f2a40[m Merge pull request #33 from ArnasDon/feat/first-inbound-message-trigger
+[33m5243188[m feat(automations): add 'First Message from Contact' trigger
+[33mda809ce[m Merge pull request #32 from ArnasDon/fix/automations-actually-send-via-meta
+[33m0e75eb8[m fix(automations): actually send messages via Meta
+[33me8c952b[m Merge pull request #31 from ArnasDon/feat/automations
+[33mb7b362a[m feat(automations): visual flow builder, engine, and logs viewer
+[33m8e61aa5[m Merge pull request #30 from ArnasDon/fix/broadcast-hardening-review
+[33m66dd4ef[m fix(broadcasts): senior-review hardening pass
+[33ma328ef1[m Merge pull request #29 from ArnasDon/feat/broadcasts-delete-and-meta-template-sync
+[33mb37229f[m feat(broadcasts): delete campaign + sync templates from Meta
+[33m6bae86b[m Merge pull request #28 from ArnasDon/fix/contact-deletion-fk-constraints
+[33m5f488e1[m fix(contacts): allow deletion — SET NULL on broadcast_recipients, deals
+[33m5c2f87f[m Merge pull request #27 from ArnasDon/fix/favicon-and-template-language
+[33m980ce6a[m fix: WaCRM favicon + template language defaults to en_US
+[33mf854327[m Merge pull request #26 from ArnasDon/fix/cache-control-headers
+[33m56c76af[m fix(deploy): Cache-Control headers so CDN stops serving stale HTML
+[33med8dd6d[m Merge pull request #25 from ArnasDon/fix/broadcasts-promote-b-c-and-send
+[33mcd04e06[m fix(broadcasts): attach user_id on send, surface errors with toast
+[33m5dbb26e[m Merge pull request #23 from ArnasDon/feat/broadcasts-audience-c
+[33mdb6e853[m Merge pull request #21 from ArnasDon/fix/broadcasts-correctness-a
+[33m296a905[m feat(broadcasts) C: custom-field audience, exclude tags, live preview
+[33m244d04c[m feat(broadcasts) B: list rates, detail funnel + CSV, save-as-draft
+[33m5d5c5f0[m fix(broadcasts): per-recipient variables, webhook status sync, rate limit
+[33mf746299[m Merge pull request #20 from ArnasDon/fix/pipelines-sizing-and-review
+[33m03fbead[m fix(pipelines): size columns to fill, batch stage saves, inline delete confirm
+[33m4229c94[m Merge pull request #19 from ArnasDon/fix/pipelines-dark-theme-and-tooltips
+[33m2cc03fc[m fix(pipelines): dark-theme the board + cards, put analytics above, add metric tooltips
+[33m57f05fb[m Merge pull request #18 from ArnasDon/feat/pipelines-kanban-dnd
+[33mf1eafd5[m feat(pipelines): Kanban drag-drop, analytics, deal sheet, contact deals tab
+[33m3615e8c[m Merge pull request #17 from ArnasDon/fix/inbox-reclick-clears-messages
+[33m5467c3e[m fix(inbox): re-clicking active conversation no longer clears messages
+[33m0a9d9f2[m Merge pull request #15 from ArnasDon/refactor/meta-api-named-params
+[33mf3c6896[m refactor: Meta API helpers use named params (prevents swapped-args bugs)
+[33m03b40e0[m Merge pull request #14 from ArnasDon/fix/media-messages-pipeline
+[33m870e25f[m fix: media messages (image/video/audio/document/sticker) now render
+[33m641031f[m Merge pull request #13 from ArnasDon/feat/phone-variant-retry
+[33me97d5b5[m feat: auto-retry with phone variants on Meta "not in allowed list"
+[33m0a5d274[m Merge pull request #12 from ArnasDon/fix/send-route-and-handler
+[33mcf706a8[m fix: outbound messages silently failing (wrong Meta args + schema)
+[33m2446056[m Merge pull request #11 from ArnasDon/fix/inbox-refresh-loop-and-banner
+[33m976f1ff[m fix: inbox refresh loop, wrong connection status, overlapping banner
+[33mb8923c6[m Merge pull request #10 from ArnasDon/fix/webhook-messages-schema
+[33mffdf2d1[m fix: webhook message insert uses wrong schema field names
+[33m82fc18e[m Merge pull request #9 from ArnasDon/fix/better-token-corruption-handling
+[33m43b8e93[m fix: properly handle WhatsApp config save/corruption/reset flow
+[33m0bcbdc2[m Merge pull request #8 from ArnasDon/fix/test-api-connection-get-handler
+[33m0493451[m fix: add GET handler for /api/whatsapp/config + fix swapped args
+[33m9ccc53e[m Merge pull request #7 from ArnasDon/fix/auth-provider-context
+[33m186c9f0[m fix: share auth via React Context to prevent getSession() timeouts
+[33m7cc6a84[m Merge pull request #6 from ArnasDon/fix/use-auth-getsession
+[33m8f0f8af[m fix: use getSession() in useAuth hook (fixes 10s timeout)
+[33maaaddf0[m Merge pull request #5 from ArnasDon/perf/use-get-session-client-side
+[33m2e7d7a6[m perf: use getSession() instead of getUser() in client components
+[33m928a67e[m Merge pull request #4 from ArnasDon/fix/auth-hook-infinite-loading
+[33m7d7deb5[m fix: dashboard stuck on infinite 'Loading...' spinner
+[33m582af0f[m Merge pull request #3 from ArnasDon/fix/idempotent-migration
+[33maee1621[m fix: make migration idempotent
+[33mb964782[m Merge pull request #2 from ArnasDon/fix/supabase-client-singleton
+[33m31e1d83[m Merge pull request #1 from ArnasDon/fix/routing-remove-dashboard-prefix
+[33m4de6b77[m fix: make Supabase browser client a singleton
+[33ma4c9663[m fix: remove /dashboard prefix from nav links and redirects
+[33m658d070[m Initial scaffold: WhatsApp CRM with Next.js + Supabase
+[33mde3deb3[m feat: initial commit
+[33mc70bfe0[m Initial commit from Create Next App
