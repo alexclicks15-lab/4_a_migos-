@@ -88,14 +88,18 @@ export default function InboxPage() {
         .eq("id", convId)
         .maybeSingle();
       if (error) {
-        // Supabase errors have non-enumerable properties — log fields
-        // explicitly so the console message isn't just `{}`.
-        console.error("Failed to hydrate conversation:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+        let serializedError = "";
+        try {
+          const keys = Array.from(new Set([
+            ...Object.getOwnPropertyNames(error || {}),
+            ...Object.getOwnPropertyNames(Object.getPrototypeOf(error || {}) || {}),
+            "message", "code", "details", "hint", "status", "name", "stack"
+          ]));
+          serializedError = JSON.stringify(error, keys, 2);
+        } catch (e) {
+          serializedError = String(error);
+        }
+        console.error("Failed to hydrate conversation:", serializedError);
         return;
       }
       if (!data) return;

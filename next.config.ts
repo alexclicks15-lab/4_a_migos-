@@ -92,6 +92,20 @@ const nextConfig: NextConfig = {
    * matched.
    */
   async headers() {
+    const isProd = process.env.NODE_ENV === "production";
+    
+    const securityHeadersRule = {
+      // Security headers on every response, including /_next/static
+      // assets (nosniff matters there) and /api/* (HSTS + referrer-
+      // policy don't hurt).
+      source: "/:path*",
+      headers: [...SECURITY_HEADERS],
+    };
+
+    if (!isProd) {
+      return [securityHeadersRule];
+    }
+
     return [
       {
         source: "/_next/static/:path*",
@@ -116,13 +130,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        // Security headers on every response, including /_next/static
-        // assets (nosniff matters there) and /api/* (HSTS + referrer-
-        // policy don't hurt).
-        source: "/:path*",
-        headers: [...SECURITY_HEADERS],
-      },
+      securityHeadersRule,
     ];
   },
 };

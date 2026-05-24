@@ -84,13 +84,18 @@ export function ConversationList({
       if (cancelled) return;
 
       if (error) {
-        // Supabase errors have non-enumerable properties — log fields explicitly
-        console.error("Failed to fetch conversations:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+        let serializedError = "";
+        try {
+          const keys = Array.from(new Set([
+            ...Object.getOwnPropertyNames(error || {}),
+            ...Object.getOwnPropertyNames(Object.getPrototypeOf(error || {}) || {}),
+            "message", "code", "details", "hint", "status", "name", "stack"
+          ]));
+          serializedError = JSON.stringify(error, keys, 2);
+        } catch (e) {
+          serializedError = String(error);
+        }
+        console.error("Failed to fetch conversations:", serializedError);
         setLoading(false);
         return;
       }

@@ -81,12 +81,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error("[AuthProvider] fetchProfile error:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+        console.error(
+          "[AuthProvider] fetchProfile error detail:",
+          `type: ${typeof error} | ` +
+          `constructor: ${(error as any)?.constructor?.name} | ` +
+          `message: ${(error as any)?.message} | ` +
+          `code: ${(error as any)?.code} | ` +
+          `keys: ${typeof error === "object" && error !== null ? Object.keys(error).join(", ") : "none"}`
+        );
         return;
       }
 
