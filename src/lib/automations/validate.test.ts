@@ -120,6 +120,15 @@ describe("validateStepsForActivation", () => {
     ]);
   });
 
+  it("flags google_calendar_create_event when summary is missing", () => {
+    const issues = validateStepsForActivation([
+      { step_type: "google_calendar_create_event", step_config: {} },
+    ]);
+    expect(issues.map((i) => i.path)).toEqual([
+      "steps[0].summary",
+    ]);
+  });
+
   it("flags update_contact_field when field or value is missing", () => {
     const issues = validateStepsForActivation([
       { step_type: "update_contact_field", step_config: { field: "name" } },
@@ -184,6 +193,32 @@ describe("validateTriggerForActivation", () => {
         match_type: "exact",
       }),
     ).toEqual([]);
+  });
+
+  it("accepts valid exact_match and message_contains configs", () => {
+    expect(
+      validateTriggerForActivation("exact_match", {
+        keywords: ["hello", "hi"],
+      }),
+    ).toEqual([]);
+    expect(
+      validateTriggerForActivation("message_contains", {
+        keywords: ["support", "help"],
+      }),
+    ).toEqual([]);
+  });
+
+  it("rejects exact_match and message_contains with empty keywords", () => {
+    expect(
+      validateTriggerForActivation("exact_match", {
+        keywords: [],
+      }).map((i) => i.path),
+    ).toContain("trigger.keywords");
+    expect(
+      validateTriggerForActivation("message_contains", {
+        keywords: ["   "],
+      }).map((i) => i.message),
+    ).toContain("keywords cannot be empty strings");
   });
 
   it("rejects keyword_match with empty keyword array", () => {

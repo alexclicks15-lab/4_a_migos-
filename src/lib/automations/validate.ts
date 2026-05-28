@@ -135,6 +135,11 @@ function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): v
     case 'close_conversation':
       // No config required.
       break
+    case 'google_calendar_create_event':
+      if (!nonEmpty(c.summary)) {
+        issues.push({ path: `${path}.summary`, message: 'event summary (title) is required' })
+      }
+      break
     default:
       issues.push({ path, message: `unknown step type: ${step.step_type}` })
   }
@@ -147,14 +152,14 @@ export function validateTriggerForActivation(
   const issues: ValidationIssue[] = []
   const cfg = (triggerConfig ?? {}) as Record<string, unknown>
 
-  if (triggerType === 'keyword_match') {
+  if (triggerType === 'keyword_match' || triggerType === 'exact_match' || triggerType === 'message_contains') {
     const k = cfg.keywords
     if (!Array.isArray(k) || k.length === 0) {
       issues.push({ path: 'trigger.keywords', message: 'at least one keyword is required' })
     } else if (k.some((v) => typeof v !== 'string' || v.trim() === '')) {
       issues.push({ path: 'trigger.keywords', message: 'keywords cannot be empty strings' })
     }
-    if (cfg.match_type !== 'exact' && cfg.match_type !== 'contains') {
+    if (triggerType === 'keyword_match' && cfg.match_type !== 'exact' && cfg.match_type !== 'contains') {
       issues.push({
         path: 'trigger.match_type',
         message: 'match type must be "exact" or "contains"',
@@ -167,6 +172,36 @@ export function validateTriggerForActivation(
   } else if (triggerType === 'tag_added') {
     if (!nonEmpty(cfg.tag_id)) {
       issues.push({ path: 'trigger.tag_id', message: 'tag is required' })
+    }
+  } else if (triggerType === 'tag_removed') {
+    if (!nonEmpty(cfg.tag_id)) {
+      issues.push({ path: 'trigger.tag_id', message: 'tag is required' })
+    }
+  } else if (triggerType === 'regex_match') {
+    if (!nonEmpty(cfg.pattern)) {
+      issues.push({ path: 'trigger.pattern', message: 'regex pattern is required' })
+    } else {
+      try {
+        new RegExp(String(cfg.pattern))
+      } catch {
+        issues.push({ path: 'trigger.pattern', message: 'invalid regular expression' })
+      }
+    }
+  } else if (triggerType === 'intent_detected') {
+    if (!nonEmpty(cfg.intent)) {
+      issues.push({ path: 'trigger.intent', message: 'AI intent keyword is required' })
+    }
+  } else if (triggerType === 'button_clicked') {
+    if (!nonEmpty(cfg.button_id) && !nonEmpty(cfg.button_text)) {
+      issues.push({ path: 'trigger.button_id', message: 'button ID or button text is required' })
+    }
+  } else if (triggerType === 'list_option_selected') {
+    if (!nonEmpty(cfg.option_id) && !nonEmpty(cfg.option_text)) {
+      issues.push({ path: 'trigger.option_id', message: 'option ID or option text is required' })
+    }
+  } else if (triggerType === 'contact_field_updated') {
+    if (!nonEmpty(cfg.field)) {
+      issues.push({ path: 'trigger.field', message: 'field name is required' })
     }
   }
 

@@ -3,6 +3,7 @@ import type {
   AutomationLogStepResult,
   AutomationStep,
   AutomationTriggerType,
+  AutomationTrigger,
   ConditionStepConfig,
   KeywordMatchTriggerConfig,
   SendMessageStepConfig,
@@ -13,9 +14,37 @@ import type {
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
+  GoogleCalendarCreateEventStepConfig,
+  AIAgentStepConfig,
+  HttpRequestStepConfig,
+  SendMediaStepConfig,
+  IncreaseLeadScoreStepConfig,
+  AddInternalNoteStepConfig,
+  MovePipelineStageStepConfig,
+  TriggerAutomationStepConfig,
+  SwitchStepConfig,
+  SplitTrafficStepConfig,
+  LoopStepConfig,
+  DelayUntilStepConfig,
+  EscalatePriorityStepConfig,
+  NotifyTeamStepConfig,
+  SendPaymentLinkStepConfig,
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
 import { engineSendText, engineSendTemplate } from './meta-send'
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@/lib/google-calendar/client'
+import { runLocalFallbackAI } from '@/lib/ai/agent-engine'
+import { callAI } from '@/lib/ai/multi-provider'
+import {
+  bookAppointment,
+  rescheduleAppointment,
+  cancelAppointment,
+  generateSlotsForDate,
+  generateTokenNumber,
+  checkInAppointment,
+  completeAppointment,
+  noShowAppointment
+} from '@/lib/appointments/booking-system'
 
 // ------------------------------------------------------------
 // Public API
@@ -32,6 +61,22 @@ export interface AutomationContext {
   tag_id?: string
   /** Agent the conversation was assigned to, for conversation_assigned. */
   agent_id?: string
+  /** AI classified intent, for intent_detected trigger. */
+  intent?: string
+  /** Interactive button ID, for button_clicked trigger. */
+  button_id?: string
+  /** Interactive button text label, for button_clicked trigger. */
+  button_text?: string
+  /** Interactive list option ID, for list_option_selected trigger. */
+  option_id?: string
+  /** Interactive list option text, for list_option_selected trigger. */
+  option_text?: string
+  /** CRM updated field name, for contact_field_updated trigger. */
+  updated_field?: string
+  /** CRM updated field value, for contact_field_updated trigger. */
+  updated_value?: string
+  /** Interactive reply ID mapped from webhooks. */
+  interactive_reply_id?: string
 }
 
 export interface DispatchInput {
@@ -51,11 +96,11 @@ export interface DispatchInput {
 export async function runAutomationsForTrigger(input: DispatchInput): Promise<void> {
   try {
     const db = supabaseAdmin()
+    // Query automations matching the primary trigger_type
     const { data: automations, error } = await db
       .from('automations')
       .select('*')
       .eq('user_id', input.userId)
-      .eq('trigger_type', input.triggerType)
       .eq('is_active', true)
 
     if (error) {
@@ -65,7 +110,21 @@ export async function runAutomationsForTrigger(input: DispatchInput): Promise<vo
     if (!automations || automations.length === 0) return
 
     for (const automation of automations as Automation[]) {
-      if (!triggerMatches(automation, input.context)) continue
+      // Check primary trigger match
+      const primaryMatch = automation.trigger_type === input.triggerType &&
+        triggerMatches(automation, input.context)
+
+      // Check additional triggers (multi-trigger support)
+      const additionalMatch = (automation.triggers ?? []).some((t: AutomationTrigger) => {
+        if (t.enabled === false) return false
+        if (t.trigger_type !== input.triggerType) return false
+        // Build a synthetic automation to reuse triggerMatches
+        const synthetic = { ...automation, trigger_type: t.trigger_type, trigger_config: t.trigger_config }
+        return triggerMatches(synthetic as Automation, input.context)
+      })
+
+      if (!primaryMatch && !additionalMatch) continue
+
       try {
         await executeAutomation(automation, input)
       } catch (err) {
@@ -443,6 +502,905 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       return 'conversation closed'
     }
 
+    // --- Phase 1: Advanced Action Handlers ---
+
+    case 'ai_agent': {
+      const cfg = step.step_config as AIAgentStepConfig
+      const messageText = (args.context.message_text ?? '').toString()
+      if (!messageText) return 'ai_agent: no message text'
+
+      const {
+        contact,
+        currentScore,
+        companyId,
+        crmContextStr,
+        historyText,
+        memoryText,
+        ragContext
+      } = await getAIExecutionContext(
+        db,
+        args.contactId,
+        args.automation.user_id,
+        args,
+        cfg.enable_memory,
+        cfg.enable_crm_context
+      )
+
+      let aiResult: any
+      const forceModel = cfg.provider && cfg.provider !== 'routing_default'
+        ? {
+            provider: cfg.provider,
+            model: cfg.model || (
+              cfg.provider === 'openai' ? 'gpt-4o' :
+              cfg.provider === 'gemini' ? 'gemini-1.5-flash' :
+              cfg.provider === 'claude' ? 'claude-3-5-sonnet' :
+              cfg.provider === 'grok' ? 'grok-beta' :
+              cfg.provider === 'deepseek' ? 'deepseek-chat' :
+              cfg.provider === 'ollama' ? 'llama3' : 'gpt-4o'
+            )
+          }
+        : undefined
+
+      try {
+        const persona = cfg.prompt_template || 'You are an intelligent WhatsApp CRM AI assistant.'
+        let systemPrompt = persona
+        
+        // Tone instruction
+        const toneStr = cfg.tone ? (TONE_INSTRUCTIONS[cfg.tone] || '') : ''
+        if (toneStr) {
+          systemPrompt += `\n\nTone Instruction: ${toneStr}`
+        }
+
+        // CRM context
+        if (cfg.enable_crm_context !== false) {
+          systemPrompt += `\n\nCRM Context:\n${crmContextStr}`
+        }
+
+        // Memory & history context
+        if (cfg.enable_memory !== false) {
+          systemPrompt += `\n\nShort-term Conversation History:\n${historyText}`
+          systemPrompt += `\n\nLong-term Memory/Summary:\n${memoryText}`
+        }
+
+        // RAG context
+        systemPrompt += `\n\nKnowledge Base Articles (RAG Context):\n${ragContext}`
+
+        // JSON format instruction
+        systemPrompt += `\n\nIMPORTANT: You must output a valid JSON object matching the following structure exactly, with no additional text or formatting.
+{
+  "intent": "string",
+  "confidence": number (between 0.0 and 1.0),
+  "entities": { "fieldName": "extractedValue" },
+  "crm_updates": ["add_tag:TagName", "update_lead_score:number", "create_deal:PipelineID:StageID:Title:Value", "add_internal_note:NoteText"],
+  "requires_human": boolean,
+  "suggested_reply": "string (your generated reply using the tone instructions and retrieved context)"
+}`
+
+        const response = await callAI({
+          companyId: companyId || 'default',
+          feature: 'automations',
+          prompt: `Analyze message: "${messageText}"`,
+          systemPrompt: systemPrompt,
+          temperature: cfg.temperature ?? 0.7,
+          responseFormat: 'json',
+          forceModel
+        })
+        aiResult = JSON.parse(response.text)
+      } catch (err) {
+        console.warn('[automations] AI Agent call failed, calling local fallback:', err)
+        aiResult = runLocalFallbackAI(messageText, currentScore)
+      }
+
+      // Store AI results in workflow vars for downstream steps
+      args.context.vars = {
+        ...args.context.vars,
+        ai_intent: aiResult.intent,
+        ai_confidence: aiResult.confidence,
+        ai_entities: JSON.stringify(aiResult.entities || {}),
+        ai_reply: aiResult.suggested_reply,
+        ai_requires_human: String(aiResult.requires_human),
+        ai_lead_score: String(aiResult.lead_score),
+      }
+
+      // Auto-apply CRM updates if configured
+      if (cfg.update_crm !== false && args.contactId) {
+        if (Array.isArray(aiResult.crm_updates)) {
+          for (const update of aiResult.crm_updates) {
+            if (typeof update === 'string') {
+              if (update.startsWith('add_tag:')) {
+                const tagName = update.replace('add_tag:', '').trim()
+                if (tagName) {
+                  const { data: tag } = await db
+                    .from('tags')
+                    .select('id')
+                    .eq('user_id', args.automation.user_id)
+                    .eq('name', tagName)
+                    .maybeSingle()
+                  if (tag) {
+                    await db
+                      .from('contact_tags')
+                      .upsert(
+                        { contact_id: args.contactId, tag_id: tag.id },
+                        { onConflict: 'contact_id,tag_id', ignoreDuplicates: true },
+                      )
+                  }
+                }
+              } else if (update.startsWith('update_lead_score:')) {
+                const delta = parseInt(update.replace('update_lead_score:', ''))
+                if (!isNaN(delta)) {
+                  const newScore = Math.max(0, Math.min(100, currentScore + delta))
+                  await db
+                    .from('contacts')
+                    .update({ lead_score: newScore })
+                    .eq('id', args.contactId)
+                }
+              } else if (update.startsWith('create_deal:')) {
+                // format: create_deal:PipelineID:StageID:Title:Value
+                const parts = update.replace('create_deal:', '').split(':')
+                const pipelineId = parts[0]?.trim()
+                const stageId = parts[1]?.trim()
+                const title = parts[2]?.trim() || 'AI Generated Deal'
+                const value = parseFloat(parts[3]?.trim() || '0')
+                if (pipelineId && stageId) {
+                  await db.from('deals').insert({
+                    user_id: args.automation.user_id,
+                    pipeline_id: pipelineId,
+                    stage_id: stageId,
+                    contact_id: args.contactId,
+                    title: title,
+                    value: isNaN(value) ? 0 : value,
+                    status: 'open',
+                  })
+                }
+              } else if (update.startsWith('add_internal_note:')) {
+                const noteText = update.replace('add_internal_note:', '').trim()
+                if (noteText) {
+                  await db.from('contact_notes').insert({
+                    contact_id: args.contactId,
+                    user_id: args.automation.user_id,
+                    note_text: noteText,
+                  })
+                }
+              }
+            } else if (update && typeof update === 'object') {
+              const type = update.type || update.action
+              if (type === 'add_tag') {
+                const tagName = (update.name || update.tag || '').trim()
+                if (tagName) {
+                  const { data: tag } = await db
+                    .from('tags')
+                    .select('id')
+                    .eq('user_id', args.automation.user_id)
+                    .eq('name', tagName)
+                    .maybeSingle()
+                  if (tag) {
+                    await db
+                      .from('contact_tags')
+                      .upsert(
+                        { contact_id: args.contactId, tag_id: tag.id },
+                        { onConflict: 'contact_id,tag_id', ignoreDuplicates: true },
+                      )
+                  }
+                }
+              } else if (type === 'update_lead_score' || type === 'lead_score') {
+                const delta = parseInt(update.value || update.amount || update.delta || '0')
+                if (!isNaN(delta)) {
+                  const newScore = Math.max(0, Math.min(100, currentScore + delta))
+                  await db
+                    .from('contacts')
+                    .update({ lead_score: newScore })
+                    .eq('id', args.contactId)
+                }
+              } else if (type === 'create_deal' || type === 'deal') {
+                const pipelineId = update.pipeline_id || update.pipeline
+                const stageId = update.stage_id || update.stage
+                const title = update.title || 'AI Generated Deal'
+                const value = parseFloat(update.value || update.amount || '0')
+                if (pipelineId && stageId) {
+                  await db.from('deals').insert({
+                    user_id: args.automation.user_id,
+                    pipeline_id: pipelineId,
+                    stage_id: stageId,
+                    contact_id: args.contactId,
+                    title: title,
+                    value: isNaN(value) ? 0 : value,
+                    status: 'open',
+                  })
+                }
+              } else if (type === 'add_internal_note' || type === 'note') {
+                const noteText = (update.note_text || update.text || '').trim()
+                if (noteText) {
+                  await db.from('contact_notes').insert({
+                    contact_id: args.contactId,
+                    user_id: args.automation.user_id,
+                    note_text: noteText,
+                  })
+                }
+              }
+            }
+          }
+        }
+
+        // Direct deal/note fields on aiResult
+        if (aiResult.deal && typeof aiResult.deal === 'object') {
+          const deal = aiResult.deal
+          const pipelineId = deal.pipeline_id || deal.pipeline
+          const stageId = deal.stage_id || deal.stage
+          const title = deal.title || 'AI Generated Deal'
+          const value = parseFloat(deal.value || deal.amount || '0')
+          if (pipelineId && stageId) {
+            await db.from('deals').insert({
+              user_id: args.automation.user_id,
+              pipeline_id: pipelineId,
+              stage_id: stageId,
+              contact_id: args.contactId,
+              title: title,
+              value: isNaN(value) ? 0 : value,
+              status: 'open',
+            })
+          }
+        }
+
+        if (aiResult.note && typeof aiResult.note === 'string') {
+          const noteText = aiResult.note.trim()
+          if (noteText) {
+            await db.from('contact_notes').insert({
+              contact_id: args.contactId,
+              user_id: args.automation.user_id,
+              note_text: noteText,
+            })
+          }
+        }
+      }
+
+      // Auto-send reply if configured
+      if (cfg.auto_reply !== false && aiResult.suggested_reply && args.contactId) {
+        try {
+          const conversationId = await resolveConversationId(args)
+          await engineSendText({
+            userId: args.automation.user_id,
+            conversationId,
+            contactId: args.contactId,
+            text: aiResult.suggested_reply,
+          })
+        } catch (e) {
+          console.warn('[automations] ai_agent auto-reply failed:', e)
+        }
+      }
+
+      // Trigger human handoff if urgency / low confidence detected
+      const requiresHandoff = aiResult.requires_human === true || (aiResult.confidence !== undefined && aiResult.confidence < 0.4)
+      if (requiresHandoff && args.contactId) {
+        try {
+          const conversationId = await resolveConversationId(args).catch(() => null)
+          if (conversationId) {
+            // Set AI enabled status to false for this chat
+            await db
+              .from('ai_conversations')
+              .upsert(
+                { conversation_id: conversationId, enabled: false, user_id: args.automation.user_id, updated_at: new Date().toISOString() },
+                { onConflict: 'conversation_id' }
+              )
+
+            // Move conversation to pending status
+            await db
+              .from('conversations')
+              .update({ status: 'pending', updated_at: new Date().toISOString() })
+              .eq('id', conversationId)
+
+            // Apply "Escalated" tag
+            let { data: tag } = await db
+              .from('tags')
+              .select('id')
+              .eq('user_id', args.automation.user_id)
+              .eq('name', 'Escalated')
+              .maybeSingle()
+
+            if (!tag) {
+              const { data: newTag } = await db
+                .from('tags')
+                .insert({ user_id: args.automation.user_id, name: 'Escalated', color: '#ec4899' })
+                .select('id')
+                .single()
+              tag = newTag
+            }
+
+            if (tag) {
+              await db.from('contact_tags').upsert(
+                { contact_id: args.contactId, tag_id: tag.id },
+                { onConflict: 'contact_id,tag_id' }
+              )
+            }
+
+            // Save notification message in thread
+            await db.from('messages').insert({
+              conversation_id: conversationId,
+              sender_type: 'bot',
+              content_type: 'text',
+              content_text: '⚠️ Conversation control transferred to support agent.',
+              status: 'sent',
+              created_at: new Date().toISOString()
+            })
+          }
+        } catch (handoffErr) {
+          console.error('[automations-engine] Handoff execution failed:', handoffErr)
+        }
+      }
+
+      return `AI: intent=${aiResult.intent} conf=${aiResult.confidence?.toFixed(2) || '0.00'} human=${requiresHandoff}`
+    }
+
+    case 'ai_reply': {
+      const cfg = step.step_config as AIAgentStepConfig
+      const messageText = (args.context.message_text ?? '').toString()
+      if (!messageText || !args.contactId) return 'ai_reply: no message or contact'
+
+      const {
+        contact,
+        currentScore,
+        companyId,
+        crmContextStr,
+        historyText,
+        memoryText,
+        ragContext
+      } = await getAIExecutionContext(
+        db,
+        args.contactId,
+        args.automation.user_id,
+        args,
+        cfg.enable_memory,
+        cfg.enable_crm_context
+      )
+
+      let aiResult: any
+      const forceModel = cfg.provider && cfg.provider !== 'routing_default'
+        ? {
+            provider: cfg.provider,
+            model: cfg.model || (
+              cfg.provider === 'openai' ? 'gpt-4o' :
+              cfg.provider === 'gemini' ? 'gemini-1.5-flash' :
+              cfg.provider === 'claude' ? 'claude-3-5-sonnet' :
+              cfg.provider === 'grok' ? 'grok-beta' :
+              cfg.provider === 'deepseek' ? 'deepseek-chat' :
+              cfg.provider === 'ollama' ? 'llama3' : 'gpt-4o'
+            )
+          }
+        : undefined
+
+      try {
+        const persona = cfg.prompt_template || 'You are a helpful customer support agent for our business. Answer queries politely, provide details, and offer help.'
+        let systemPrompt = persona
+        
+        // Tone instruction
+        const toneStr = cfg.tone ? (TONE_INSTRUCTIONS[cfg.tone] || '') : ''
+        if (toneStr) {
+          systemPrompt += `\n\nTone Instruction: ${toneStr}`
+        }
+
+        // CRM context
+        if (cfg.enable_crm_context !== false) {
+          systemPrompt += `\n\nCRM Context:\n${crmContextStr}`
+        }
+
+        // Memory & history context
+        if (cfg.enable_memory !== false) {
+          systemPrompt += `\n\nShort-term Conversation History:\n${historyText}`
+          systemPrompt += `\n\nLong-term Memory/Summary:\n${memoryText}`
+        }
+
+        // RAG context
+        systemPrompt += `\n\nKnowledge Base Articles (RAG Context):\n${ragContext}`
+
+        const response = await callAI({
+          companyId: companyId || 'default',
+          feature: 'replies',
+          prompt: `Generate direct reply to message: "${messageText}"`,
+          systemPrompt: systemPrompt,
+          temperature: cfg.temperature ?? 0.7,
+          forceModel
+        })
+        aiResult = {
+          suggested_reply: response.text,
+          intent: 'auto_reply',
+          confidence: 1.0,
+          entities: {},
+          crm_updates: [],
+          requires_human: false
+        }
+      } catch (err) {
+        console.warn('[automations] AI Reply step failed, calling local fallback:', err)
+        aiResult = runLocalFallbackAI(messageText, 50)
+      }
+
+      if (aiResult.suggested_reply) {
+        const conversationId = await resolveConversationId(args)
+        await engineSendText({
+          userId: args.automation.user_id,
+          conversationId,
+          contactId: args.contactId,
+          text: aiResult.suggested_reply,
+        })
+      }
+      return `ai_reply sent: ${aiResult.intent}`
+    }
+
+    case 'http_request': {
+      const cfg = step.step_config as HttpRequestStepConfig
+      if (!cfg.url) throw new Error('http_request needs url')
+      const body = cfg.body_template ? interpolate(cfg.body_template, args) : undefined
+      const maxRetries = cfg.retry_count ?? 0
+      let lastError = ''
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), cfg.timeout_ms ?? 10000)
+          const res = await fetch(cfg.url, {
+            method: cfg.method || 'POST',
+            headers: { 'content-type': 'application/json', ...(cfg.headers ?? {}) },
+            body: cfg.method !== 'GET' ? body : undefined,
+            signal: controller.signal,
+          })
+          clearTimeout(timeout)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          if (cfg.response_var_key) {
+            const responseText = await res.text()
+            args.context.vars = { ...args.context.vars, [cfg.response_var_key]: responseText }
+          }
+          return `http_request ${cfg.method} ${res.status} (attempt ${attempt + 1})`
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err)
+          if (attempt < maxRetries) {
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+          }
+        }
+      }
+      throw new Error(`http_request failed after ${maxRetries + 1} attempts: ${lastError}`)
+    }
+
+    case 'send_media': {
+      // Placeholder — actual media sending requires WhatsApp media API
+      const cfg = step.step_config as SendMediaStepConfig
+      if (!args.contactId) throw new Error('send_media needs a contact')
+      return `send_media: ${cfg.media_type} queued (${cfg.media_url})`
+    }
+
+    case 'send_buttons': {
+      if (!args.contactId) throw new Error('send_buttons needs a contact')
+      return 'send_buttons: interactive message queued'
+    }
+
+    case 'send_list_message': {
+      if (!args.contactId) throw new Error('send_list_message needs a contact')
+      return 'send_list_message: interactive list queued'
+    }
+
+    case 'increase_lead_score': {
+      const cfg = step.step_config as IncreaseLeadScoreStepConfig
+      if (!args.contactId) throw new Error('increase_lead_score needs a contact')
+      const { data: contact } = await db
+        .from('contacts')
+        .select('lead_score')
+        .eq('id', args.contactId)
+        .maybeSingle()
+      const current = contact?.lead_score ?? 0
+      const newScore = Math.max(0, Math.min(100, current + (cfg.amount ?? 10)))
+      await db
+        .from('contacts')
+        .update({ lead_score: newScore, updated_at: new Date().toISOString() })
+        .eq('id', args.contactId)
+      return `lead_score: ${current} → ${newScore}`
+    }
+
+    case 'add_internal_note': {
+      const cfg = step.step_config as AddInternalNoteStepConfig
+      if (!args.contactId) throw new Error('add_internal_note needs a contact')
+      const text = interpolate(cfg.note_text || '', args)
+      await db.from('contact_notes').insert({
+        contact_id: args.contactId,
+        user_id: args.automation.user_id,
+        note_text: text,
+      })
+      return `note added: ${text.slice(0, 40)}…`
+    }
+
+    case 'move_pipeline_stage': {
+      const cfg = step.step_config as MovePipelineStageStepConfig
+      if (!cfg.stage_id) throw new Error('move_pipeline_stage needs stage_id')
+      const dealQuery = cfg.deal_id
+        ? db.from('deals').update({ stage_id: cfg.stage_id }).eq('id', cfg.deal_id)
+        : db.from('deals').update({ stage_id: cfg.stage_id })
+            .eq('user_id', args.automation.user_id)
+            .eq('contact_id', args.contactId ?? '')
+            .eq('status', 'open')
+      await dealQuery
+      return `pipeline stage moved to ${cfg.stage_id}`
+    }
+
+    case 'trigger_automation': {
+      const cfg = step.step_config as TriggerAutomationStepConfig
+      // Depth guard to prevent infinite recursion
+      const depth = Number(args.context.vars?._trigger_depth) || 0
+      if (depth >= 5) throw new Error('Max trigger depth exceeded (5 levels)')
+      const childContext = cfg.pass_context
+        ? { ...args.context, vars: { ...args.context.vars, _trigger_depth: String(depth + 1) } }
+        : { vars: { _trigger_depth: String(depth + 1) } }
+      // Fire the target automation directly
+      const { data: target } = await db
+        .from('automations')
+        .select('*')
+        .eq('id', cfg.target_automation_id)
+        .eq('is_active', true)
+        .maybeSingle()
+      if (target) {
+        await executeAutomation(target as Automation, {
+          userId: args.automation.user_id,
+          triggerType: target.trigger_type,
+          contactId: args.contactId,
+          context: childContext as AutomationContext,
+        })
+      }
+      return `triggered automation ${cfg.target_automation_id}`
+    }
+
+    case 'switch': {
+      const cfg = step.step_config as SwitchStepConfig
+      // Evaluate the subject, find matching case, recurse into that branch
+      let subjectValue = ''
+      if (cfg.subject === 'message_content') {
+        subjectValue = (args.context.message_text ?? '').toString().toLowerCase()
+      } else if (cfg.subject === 'contact_field' && cfg.operand && args.contactId) {
+        const { data } = await db
+          .from('contacts')
+          .select(cfg.operand)
+          .eq('id', args.contactId)
+          .maybeSingle()
+        subjectValue = String((data as unknown as Record<string, unknown>)?.[cfg.operand] ?? '')
+      }
+      const matchedCase = (cfg.cases ?? []).findIndex((c) =>
+        subjectValue.includes(c.value.toLowerCase())
+      )
+      const branch = matchedCase >= 0 ? 'yes' : 'no'
+      await executeStepsFrom({
+        ...args,
+        parentStepId: step.id,
+        branch,
+        startPosition: 0,
+      })
+      return `switch: matched case ${matchedCase >= 0 ? matchedCase : 'default'}`
+    }
+
+    case 'split_traffic': {
+      const cfg = step.step_config as SplitTrafficStepConfig
+      const totalWeight = (cfg.variants ?? []).reduce((s, v) => s + v.weight, 0)
+      const rand = Math.random() * totalWeight
+      let cumulative = 0
+      let chosen = 0
+      for (let i = 0; i < (cfg.variants ?? []).length; i++) {
+        cumulative += cfg.variants[i].weight
+        if (rand <= cumulative) { chosen = i; break }
+      }
+      args.context.vars = { ...args.context.vars, _split_variant: String(chosen) }
+      return `split_traffic: variant ${cfg.variants?.[chosen]?.label ?? chosen}`
+    }
+
+    case 'loop': {
+      const cfg = step.step_config as LoopStepConfig
+      const maxIter = cfg.max_iterations ?? 3
+      for (let i = 0; i < maxIter; i++) {
+        args.context.vars = { ...args.context.vars, _loop_index: String(i) }
+        await executeStepsFrom({
+          ...args,
+          parentStepId: step.id,
+          branch: 'yes',
+          startPosition: 0,
+        })
+      }
+      return `loop: completed ${maxIter} iterations`
+    }
+
+    case 'delay_until': {
+      const cfg = step.step_config as DelayUntilStepConfig
+      if (cfg.until_type === 'datetime' && cfg.datetime) {
+        const target = new Date(cfg.datetime).getTime()
+        const now = Date.now()
+        if (target > now) {
+          // Schedule as pending execution
+          await db.from('automation_pending_executions').insert({
+            automation_id: args.automation.id,
+            user_id: args.automation.user_id,
+            contact_id: args.contactId,
+            log_id: args.logId,
+            parent_step_id: args.parentStepId,
+            branch: args.branch,
+            next_step_position: step.position + 1,
+            context: args.context,
+            run_at: cfg.datetime,
+            status: 'pending',
+          })
+          return `delay_until: scheduled for ${cfg.datetime}`
+        }
+      }
+      return 'delay_until: condition already met'
+    }
+
+    case 'assign_human_agent': {
+      if (!args.contactId) throw new Error('assign_human_agent needs a contact')
+      const cfg = step.step_config as Record<string, unknown>
+      const agentId = cfg.agent_id as string | undefined
+      if (agentId) {
+        await db
+          .from('conversations')
+          .update({ assigned_agent_id: agentId })
+          .eq('user_id', args.automation.user_id)
+          .eq('contact_id', args.contactId)
+      }
+      return `human agent assigned: ${agentId ?? 'round-robin'}`
+    }
+
+    case 'notify_team': {
+      const cfg = step.step_config as NotifyTeamStepConfig
+      const text = interpolate(cfg.message || '', args)
+      // Store as internal notification (could be extended to Slack/email)
+      console.log(`[automations] TEAM NOTIFICATION: ${text}`)
+      return `notify_team: ${text.slice(0, 50)}`
+    }
+
+    case 'escalate_priority': {
+      const cfg = step.step_config as EscalatePriorityStepConfig
+      if (args.contactId) {
+        await db
+          .from('conversations')
+          .update({ priority: cfg.level || 'high', updated_at: new Date().toISOString() })
+          .eq('user_id', args.automation.user_id)
+          .eq('contact_id', args.contactId)
+      }
+      return `escalated to ${cfg.level}`
+    }
+
+    case 'send_payment_link': {
+      const cfg = step.step_config as SendPaymentLinkStepConfig
+      // Placeholder — would integrate with Razorpay/Stripe
+      return `payment_link: ${cfg.currency ?? 'INR'} ${cfg.amount}`
+    }
+
+    case 'create_order':
+    case 'verify_payment':
+    case 'track_shipment':
+    case 'generate_invoice': {
+      // Ecommerce placeholders — will be wired to actual integrations
+      return `${step.step_type}: executed (placeholder)`
+    }
+
+    case 'pause_flow': {
+      return 'flow paused'
+    }
+
+    case 'end_flow': {
+      return 'flow ended'
+    }
+
+    case 'goto_step': {
+      const cfg = step.step_config as Record<string, unknown>
+      return `goto: ${cfg.target_step_cid ?? 'unknown'}`
+    }
+
+    case 'google_calendar_create_event': {
+      const cfg = step.step_config as GoogleCalendarCreateEventStepConfig
+      if (!cfg.summary) throw new Error('google_calendar_create_event needs summary')
+
+      // Resolve contact details for custom interpolation
+      let contactName = 'Unknown Contact'
+      let contactEmail = ''
+      let contactPhone = ''
+      if (args.contactId) {
+        const { data: contact } = await db
+          .from('contacts')
+          .select('name, email, phone')
+          .eq('id', args.contactId)
+          .maybeSingle()
+        if (contact) {
+          contactName = contact.name || 'Unknown Contact'
+          contactEmail = contact.email || ''
+          contactPhone = contact.phone || ''
+        }
+      }
+
+      const replaceContactPlaceholder = (text: string) => {
+        return text
+          .replace(/\{\{\s*contact\.name\s*\}\}/g, contactName)
+          .replace(/\{\{\s*contact\.email\s*\}\}/g, contactEmail)
+          .replace(/\{\{\s*contact\.phone\s*\}\}/g, contactPhone)
+      }
+
+      const summary = replaceContactPlaceholder(interpolate(cfg.summary, args))
+      const description = cfg.description
+        ? replaceContactPlaceholder(interpolate(cfg.description, args))
+        : undefined
+
+      const result = await createCalendarEvent(args.automation.user_id, db, {
+        summary,
+        description,
+        startDelayMinutes: cfg.start_delay_minutes,
+        durationMinutes: cfg.duration_minutes,
+      })
+
+      return `event created: ${result.id} (${result.htmlLink || 'no link'})`
+    }
+
+    case 'create_appointment': {
+      const cfg = step.step_config as any
+      if (!args.contactId) throw new Error('create_appointment needs a contact')
+      
+      const dateStr = (args.context.vars?.appointment_date as string) || 
+                      (args.context.vars?.ai_entities ? JSON.parse(args.context.vars.ai_entities as string).appointment_date : null) || 
+                      new Date(Date.now() + 86400000).toISOString().split('T')[0]
+
+      const timeStr = (args.context.vars?.appointment_time as string) || 
+                      (args.context.vars?.ai_entities ? JSON.parse(args.context.vars.ai_entities as string).appointment_time : null) || 
+                      '10:00'
+
+      const res = await bookAppointment(args.automation.user_id, args.contactId, cfg.service || 'Consultation', dateStr, timeStr, {
+        location: cfg.location || 'Main Office',
+        notes: interpolate(cfg.notes || '', args)
+      })
+
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to book appointment')
+      }
+
+      args.context.vars = {
+        ...args.context.vars,
+        booked_token: res.token?.token_number,
+        booked_id: res.appointment?.id,
+        queue_position: res.queuePosition?.toString()
+      }
+
+      return `appointment booked: token=${res.token?.token_number} pos=${res.queuePosition}`
+    }
+
+    case 'generate_token': {
+      const cfg = step.step_config as any
+      const token = await generateTokenNumber(args.automation.user_id, cfg.branch_prefix || 'A', cfg.reset_daily !== false)
+      
+      args.context.vars = {
+        ...args.context.vars,
+        generated_token: token.token_number
+      }
+
+      return `token generated: ${token.token_number}`
+    }
+
+    case 'check_availability': {
+      const cfg = step.step_config as any
+      
+      const dateStr = (args.context.vars?.appointment_date as string) || 
+                      (args.context.vars?.ai_entities ? JSON.parse(args.context.vars.ai_entities as string).appointment_date : null) || 
+                      new Date(Date.now() + 86400000).toISOString().split('T')[0]
+
+      const slots = await generateSlotsForDate(args.automation.user_id, dateStr, {
+        location: cfg.location || 'Main Office'
+      })
+
+      const freeSlots = slots
+        .filter((s) => !s.isBooked && !s.isLocked)
+        .map((s) => s.startTime)
+        .slice(0, 4)
+        .join(', ')
+
+      args.context.vars = {
+        ...args.context.vars,
+        available_slots: freeSlots || 'none'
+      }
+
+      return `checked availability for ${dateStr}: [${freeSlots || 'none'}]`
+    }
+
+    case 'send_reminder': {
+      const cfg = step.step_config as any
+      if (!args.contactId) throw new Error('send_reminder needs a contact')
+      
+      const token = (args.context.vars?.booked_token as string) || 'A101'
+      const date = (args.context.vars?.appointment_date as string) || 'tomorrow'
+      const time = (args.context.vars?.appointment_time as string) || '10:00 AM'
+      
+      const text = `Friendly reminder: You have a scheduled appointment (${cfg.reminder_type}) on ${date} at ${time}. Token: ${token}.`
+      
+      const conversationId = await resolveConversationId(args)
+      await engineSendText({
+        userId: args.automation.user_id,
+        conversationId,
+        contactId: args.contactId,
+        text,
+      })
+
+      return `reminder (${cfg.reminder_type}) sent`
+    }
+
+    case 'reschedule_appointment': {
+      const appointmentId = (args.context.vars?.appointment_id as string)
+      if (!appointmentId) throw new Error('reschedule_appointment needs appointment_id in vars')
+
+      const dateStr = (args.context.vars?.appointment_date as string) || 
+                      (args.context.vars?.ai_entities ? JSON.parse(args.context.vars.ai_entities as string).appointment_date : null)
+      const timeStr = (args.context.vars?.appointment_time as string) || 
+                      (args.context.vars?.ai_entities ? JSON.parse(args.context.vars.ai_entities as string).appointment_time : null)
+
+      if (!dateStr || !timeStr) throw new Error('reschedule_appointment needs new date and time')
+
+      const res = await rescheduleAppointment(appointmentId, dateStr, timeStr)
+      if (!res.success) throw new Error(res.error || 'Failed to reschedule appointment')
+
+      return `appointment rescheduled to ${dateStr} at ${timeStr}`
+    }
+
+    case 'cancel_booking': {
+      const cfg = step.step_config as any
+      const appointmentId = (args.context.vars?.appointment_id as string)
+      if (!appointmentId) throw new Error('cancel_booking needs appointment_id in vars')
+
+      const res = await cancelAppointment(appointmentId, cfg.reason || 'Cancelled by system')
+      if (!res.success) throw new Error(res.error || 'Failed to cancel appointment')
+
+      return 'appointment cancelled'
+    }
+
+    case 'assign_agent': {
+      const cfg = step.step_config as any
+      if (!args.contactId) throw new Error('assign_agent needs a contact')
+      
+      let agentId = cfg.agent_id
+      if (cfg.mode === 'round_robin') {
+        const { data: profiles } = await db
+          .from('profiles')
+          .select('user_id')
+          .eq('user_id', args.automation.user_id)
+          .limit(1)
+        agentId = profiles?.[0]?.user_id
+      }
+      
+      if (!agentId) return 'no agent resolved'
+      
+      const appointmentId = (args.context.vars?.appointment_id as string)
+      if (appointmentId) {
+        await db
+          .from('appointments')
+          .update({ agent_id: agentId })
+          .eq('id', appointmentId)
+      }
+      
+      await db
+        .from('conversations')
+        .update({ assigned_agent_id: agentId })
+        .eq('user_id', args.automation.user_id)
+        .eq('contact_id', args.contactId)
+
+      return `assigned to ${agentId}`
+    }
+
+    case 'add_calendar_event': {
+      const cfg = step.step_config as any
+      
+      const dateStr = (args.context.vars?.appointment_date as string) || 
+                      new Date(Date.now() + 86400000).toISOString().split('T')[0]
+      const timeStr = (args.context.vars?.appointment_time as string) || '10:00'
+      const startDateTime = new Date(`${dateStr}T${timeStr}:00.000Z`)
+
+      let contactName = 'Unknown'
+      if (args.contactId) {
+        const { data } = await db.from('contacts').select('name').eq('id', args.contactId).single()
+        if (data?.name) contactName = data.name
+      }
+
+      const result = await createCalendarEvent(args.automation.user_id, db, {
+        summary: interpolate(cfg.summary, args).replace(/\{\{\s*contact\.name\s*\}\}/g, contactName),
+        description: cfg.description ? interpolate(cfg.description, args).replace(/\{\{\s*contact\.name\s*\}\}/g, contactName) : '',
+        startTime: startDateTime.toISOString(),
+        durationMinutes: cfg.duration_minutes || 30
+      })
+
+      return `event added: ${result.id}`
+    }
+
     default:
       return `unknown step: ${step.step_type}`
   }
@@ -474,17 +1432,234 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
   return data.id as string
 }
 
+const TONE_INSTRUCTIONS: Record<string, string> = {
+  professional: 'Maintain a professional, polite, and helpful tone. Avoid slang or overly informal language.',
+  friendly: 'Use a warm, welcoming, and friendly tone. Be supportive and conversational.',
+  luxury: 'Adopt a highly polished, sophisticated, and premium tone suitable for high-end clientele. Be elegant and refined.',
+  casual: 'Keep it casual, relaxed, and conversational. Use friendly, approachable language.',
+  'sales-focused': 'Be energetic, persuasive, and proactive. Highlight benefits, call-to-actions, and address customer pain points to drive conversions.',
+  medical: 'Maintain a highly professional, clinical, empathetic, and reassuring tone. Prioritize clarity and accuracy, and keep it formal.',
+  corporate: 'Use a formal, direct, and structured corporate communication style. Focus on business alignment and clarity.'
+}
+
+async function getAIExecutionContext(
+  db: any,
+  contactId: string | null,
+  userId: string,
+  args: ExecuteArgs,
+  enableMemory: boolean = true,
+  enableCrmContext: boolean = true
+) {
+  let contact: any = null
+  let currentScore = 50
+  let companyId = 'default'
+  let crmContextStr = 'No CRM context available.'
+
+  if (contactId && enableCrmContext) {
+    try {
+      const { data } = await db
+        .from('contacts')
+        .select('*')
+        .eq('id', contactId)
+        .maybeSingle()
+      if (data) {
+        contact = data
+        if (data.lead_score != null) currentScore = data.lead_score
+        if (data.company_id != null) companyId = data.company_id
+        
+        // Fetch contact tags
+        const { data: contactTags } = await db
+          .from('contact_tags')
+          .select('tag_id')
+          .eq('contact_id', contactId)
+        
+        const tagIds = contactTags ? contactTags.map((ct: any) => ct.tag_id) : []
+        let tagNames: string[] = []
+        if (tagIds.length > 0) {
+          const { data: tagsList } = await db
+            .from('tags')
+            .select('name')
+            .in('id', tagIds)
+          if (tagsList) {
+            tagNames = tagsList.map((t: any) => t.name)
+          }
+        }
+
+        crmContextStr = `Contact Profile:
+- Name: ${data.name || 'Unknown'}
+- Email: ${data.email || 'N/A'}
+- Phone: ${data.phone || 'N/A'}
+- Lead Score: ${currentScore}
+- Tags: ${tagNames.join(', ') || 'None'}`
+      }
+    } catch (err) {
+      console.error('[automations-engine] Failed to fetch contact info:', err)
+    }
+  }
+
+  // Resolve conversation history (last 8 messages)
+  let historyText = 'No conversation history.'
+  if (contactId && enableMemory) {
+    try {
+      const conversationId = await resolveConversationId(args).catch(() => null)
+      if (conversationId) {
+        const { data: messages } = await db
+          .from('messages')
+          .select('sender_type, content_text, created_at')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: false })
+          .limit(8)
+
+        if (messages && messages.length > 0) {
+          const chron = [...messages].reverse()
+          historyText = chron
+            .map((m) => `${m.sender_type === 'customer' ? 'Customer' : 'Assistant'}: ${m.content_text || ''}`)
+            .join('\n')
+        }
+      }
+    } catch (err) {
+      console.warn('[automations-engine] Failed to fetch conversation history:', err)
+    }
+  }
+
+  // Fetch long-term memory summary
+  let memoryText = 'No previous memory.'
+  if (contactId && enableMemory) {
+    try {
+      const { data } = await db
+        .from('ai_memory')
+        .select('summary')
+        .eq('contact_id', contactId)
+        .maybeSingle()
+      if (data?.summary) memoryText = data.summary
+    } catch (err) {
+      console.warn('[automations-engine] ai_memory fetch error:', err)
+    }
+  }
+
+  // Fetch RAG knowledge base context
+  let ragContext = 'No company knowledge base documents uploaded.'
+  if (companyId && companyId !== 'default') {
+    try {
+      const { data } = await db
+        .from('ai_knowledge_base')
+        .select('*')
+        .eq('company_id', companyId)
+      if (data && data.length > 0) {
+        ragContext = data.map((doc: any) => `[Document: ${doc.title} (${doc.type})]\n${doc.content}`).join('\n\n')
+      }
+    } catch (err) {
+      console.warn('[automations-engine] ai_knowledge_base fetch error:', err)
+    }
+  }
+
+  return {
+    contact,
+    currentScore,
+    companyId,
+    crmContextStr,
+    historyText,
+    memoryText,
+    ragContext
+  }
+}
+
+
 function triggerMatches(automation: Automation, ctx: AutomationContext | undefined): boolean {
-  if (automation.trigger_type !== 'keyword_match') return true
-  const cfg = automation.trigger_config as KeywordMatchTriggerConfig
-  if (!cfg?.keywords || cfg.keywords.length === 0) return false
-  const text = (ctx?.message_text ?? '').toString()
-  if (!text) return false
-  const haystack = cfg.case_sensitive ? text : text.toLowerCase()
-  return cfg.keywords.some((raw) => {
-    const k = cfg.case_sensitive ? raw : raw.toLowerCase()
-    return cfg.match_type === 'exact' ? haystack === k : haystack.includes(k)
-  })
+  if (!ctx) return true
+
+  const type = automation.trigger_type
+  const cfg = automation.trigger_config as Record<string, any>
+
+  if (type === 'keyword_match') {
+    if (!cfg?.keywords || cfg.keywords.length === 0) return false
+    const text = (ctx.message_text ?? '').toString()
+    if (!text) return false
+    const haystack = cfg.case_sensitive ? text : text.toLowerCase()
+    return (cfg.keywords as string[]).some((raw: string) => {
+      const k = cfg.case_sensitive ? raw : raw.toLowerCase()
+      return cfg.match_type === 'exact' ? haystack === k : haystack.includes(k)
+    })
+  }
+
+  if (type === 'exact_match') {
+    if (!cfg?.keywords || cfg.keywords.length === 0) return false
+    const text = (ctx.message_text ?? '').toString()
+    if (!text) return false
+    const haystack = cfg.case_sensitive ? text : text.toLowerCase()
+    return (cfg.keywords as string[]).some((raw: string) => {
+      const k = cfg.case_sensitive ? raw : raw.toLowerCase()
+      return haystack === k
+    })
+  }
+
+  if (type === 'message_contains') {
+    if (!cfg?.keywords || cfg.keywords.length === 0) return false
+    const text = (ctx.message_text ?? '').toString()
+    if (!text) return false
+    const haystack = cfg.case_sensitive ? text : text.toLowerCase()
+    return (cfg.keywords as string[]).some((raw: string) => {
+      const k = cfg.case_sensitive ? raw : raw.toLowerCase()
+      return haystack.includes(k)
+    })
+  }
+
+  if (type === 'template_replied') {
+    if (cfg?.template_name && ctx.vars?.template_name !== cfg.template_name) return false
+    return true
+  }
+
+  if (type === 'media_received' || type === 'media_message_received') {
+    return true
+  }
+
+  if (type === 'voice_received' || type === 'voice_message_received') {
+    return true
+  }
+
+  if (type === 'regex_match') {
+    if (!cfg?.pattern) return false
+    const text = (ctx.message_text ?? '').toString()
+    if (!text) return false
+    try {
+      const regex = new RegExp(cfg.pattern, cfg.case_sensitive ? '' : 'i')
+      return regex.test(text)
+    } catch {
+      return false
+    }
+  }
+
+  if (type === 'intent_detected') {
+    if (!cfg?.intent) return false
+    const ctxIntent = (ctx.intent ?? '').toString().toLowerCase()
+    return ctxIntent === cfg.intent.toString().toLowerCase()
+  }
+
+  if (type === 'button_clicked') {
+    const ctxBtnId = ctx.button_id || ctx.interactive_reply_id
+    if (cfg?.button_id && ctxBtnId !== cfg.button_id) return false
+    if (cfg?.button_text && ctx.button_text !== cfg.button_text) return false
+    return true
+  }
+
+  if (type === 'list_option_selected') {
+    const ctxOptId = ctx.option_id || ctx.interactive_reply_id
+    if (cfg?.option_id && ctxOptId !== cfg.option_id) return false
+    if (cfg?.option_text && ctx.option_text !== cfg.option_text) return false
+    return true
+  }
+
+  if (type === 'tag_added' || type === 'tag_removed') {
+    if (cfg?.tag_id && ctx.tag_id !== cfg.tag_id) return false
+    return true
+  }
+
+  if (type === 'contact_field_updated') {
+    if (cfg?.field && ctx.updated_field !== cfg.field) return false
+    return true
+  }
+
+  return true
 }
 
 async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): Promise<boolean> {

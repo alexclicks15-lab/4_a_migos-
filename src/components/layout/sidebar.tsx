@@ -18,7 +18,15 @@ import {
   LogOut,
   User,
   X,
+  Brain,
+  Calendar,
+  ChevronDown,
+  Plus,
+  ShieldCheck,
+  FileSpreadsheet,
 } from "lucide-react";
+import { getRoleName } from "@/lib/saas/permissions";
+import { useCompany } from "@/hooks/use-company";
 import {
   Avatar,
   AvatarFallback,
@@ -51,6 +59,9 @@ const navItems: NavItem[] = [
   { href: "/broadcasts", label: "Broadcasts", icon: Radio },
   { href: "/automations", label: "Automations", icon: Zap },
   { href: "/flows", label: "Flows", icon: Workflow, beta: true },
+  { href: "/ai-agent", label: "AI Agent", icon: Brain, beta: true },
+  { href: "/appointments", label: "Appointments", icon: Calendar },
+  { href: "/sheets", label: "Sheets & Excel", icon: FileSpreadsheet },
 ];
 
 const bottomNavItems = [
@@ -66,6 +77,7 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const { companies, activeCompany, setActiveCompany, role } = useCompany();
   const totalUnread = useTotalUnread();
 
   // Close the drawer when route changes — users opened it to navigate,
@@ -91,6 +103,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       window.removeEventListener("keydown", onKey);
     };
   }, [open, onClose]);
+
+  const dynamicNavItems = [...navItems];
+  if (role === 'super_admin') {
+    dynamicNavItems.push({ href: "/super-admin", label: "Super Admin", icon: ShieldCheck });
+  }
 
   return (
     <>
@@ -120,17 +137,75 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         )}
         aria-label="Primary"
       >
-        {/* Logo row. On mobile we put a close button here; on desktop the
-            close button is hidden since the sidebar is always-visible. */}
+        {/* Workspace Switcher header */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-4 w-4" />
-            </div>
-            <span className="text-sm font-semibold text-white">
-              CRM Template for WhatsApp
-            </span>
-          </Link>
+          {activeCompany ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex flex-1 items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-800 transition-colors focus:outline-none">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-indigo-600 text-white font-bold text-xs uppercase shadow-md shadow-indigo-900/30">
+                    {activeCompany.logo_url ? (
+                      <img src={activeCompany.logo_url} alt={activeCompany.name} className="h-full w-full object-cover rounded" />
+                    ) : (
+                      activeCompany.name.charAt(0)
+                    )}
+                  </div>
+                  <div className="flex flex-col overflow-hidden">
+                    <span className="truncate text-xs font-semibold text-white leading-tight">
+                      {activeCompany.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {role === 'super_admin' ? 'Super Admin' : getRoleName(role)}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56 bg-slate-900 border-slate-800 text-slate-100">
+                <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Switch Workspace
+                </div>
+                {companies.map((company: any) => (
+                  <DropdownMenuItem
+                    key={company.id}
+                    onClick={() => setActiveCompany(company)}
+                    className={cn(
+                      "flex items-center justify-between py-2 text-sm text-slate-300 focus:bg-slate-800 focus:text-white cursor-pointer",
+                      company.id === activeCompany.id && "bg-slate-800/50 text-white font-medium"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-xs text-white uppercase border border-slate-700">
+                        {company.name.charAt(0)}
+                      </span>
+                      <span>{company.name}</span>
+                    </div>
+                    {company.id === activeCompany.id && (
+                      <span className="text-xs text-indigo-400">✓</span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator className="bg-slate-800" />
+                {role === 'super_admin' && (
+                  <DropdownMenuItem
+                    render={<Link href="/super-admin" className="flex items-center w-full focus:bg-slate-800 focus:text-white text-slate-300" />}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Create Workspace</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+              <span className="text-sm font-semibold text-white">
+                CRM Template for WhatsApp
+              </span>
+            </Link>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -144,7 +219,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {dynamicNavItems.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));

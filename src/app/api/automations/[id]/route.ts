@@ -39,7 +39,15 @@ export async function GET(
   if (!automation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const steps = await loadStepsTree(id)
-  return NextResponse.json({ automation, steps })
+
+  const { data: logs } = await admin
+    .from('automation_logs')
+    .select('id, status, created_at, error_message, trigger_event')
+    .eq('automation_id', id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  return NextResponse.json({ automation, steps, logs: logs ?? [] })
 }
 
 export async function PATCH(
@@ -72,6 +80,7 @@ export async function PATCH(
     'description',
     'trigger_type',
     'trigger_config',
+    'triggers',
     'is_active',
   ] as const) {
     if (k in body) update[k] = body[k]

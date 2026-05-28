@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useCompany } from '@/hooks/use-company';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import {
@@ -46,6 +47,8 @@ export function ContactForm({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
 
+  const { activeCompany } = useCompany();
+
   useEffect(() => {
     if (open) {
       setName(contact?.name ?? '');
@@ -55,13 +58,15 @@ export function ContactForm({
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       fetchTags();
     }
-  }, [open, contact]);
+  }, [open, contact, activeCompany]);
 
   async function fetchTags() {
+    if (!activeCompany) return;
     setLoadingTags(true);
     const { data } = await supabase
       .from('tags')
       .select('*')
+      .eq('company_id', activeCompany.id)
       .order('name');
     if (data) setTags(data);
     setLoadingTags(false);
@@ -111,6 +116,7 @@ export function ContactForm({
           .from('contacts')
           .insert({
             user_id: user.id,
+            company_id: activeCompany?.id,
             name: name.trim() || null,
             phone: phone.trim(),
             email: email.trim() || null,

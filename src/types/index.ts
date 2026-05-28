@@ -26,6 +26,7 @@ export interface Contact {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  company_id?: string;
 }
 
 export interface Tag {
@@ -253,10 +254,76 @@ export type AutomationTriggerType =
   | 'new_message_received'
   | 'first_inbound_message'
   | 'keyword_match'
+  | 'exact_match'
+  | 'message_contains'
+  | 'media_received'
+  | 'voice_received'
+  | 'template_replied'
   | 'new_contact_created'
   | 'conversation_assigned'
   | 'tag_added'
-  | 'time_based';
+  | 'time_based'
+  // Essential Triggers
+  | 'regex_match'
+  | 'media_message_received'
+  | 'voice_message_received'
+  | 'returning_customer'
+  | 'tag_removed'
+  // WhatsApp Specific
+  | 'button_clicked'
+  | 'list_option_selected'
+  | 'flow_submitted'
+  | 'reaction_received'
+  | 'status_viewed'
+  | 'user_opted_in'
+  | 'user_opted_out'
+  // Ecommerce Triggers
+  | 'order_created'
+  | 'order_paid'
+  | 'cart_abandoned'
+  | 'cod_order_created'
+  | 'payment_failed'
+  | 'payment_success'
+  | 'order_delivered'
+  | 'refund_requested'
+  // CRM Triggers
+  | 'deal_stage_changed'
+  | 'contact_field_updated'
+  | 'lead_score_changed'
+  | 'agent_replied'
+  // Time-Based
+  | 'recurring_trigger'
+  | 'birthday_trigger'
+  | 'anniversary_trigger'
+  | 'inactivity_trigger'
+  | 'follow_up_reminder'
+  // API & Integrations
+  | 'webhook_received'
+  | 'external_api_event'
+  | 'zapier_trigger'
+  | 'shopify_event'
+  | 'google_sheets_row_added'
+  | 'razorpay_payment'
+  // AI Triggers
+  | 'intent_detected'
+  | 'negative_sentiment'
+  | 'high_purchase_intent'
+  | 'spam_detected'
+  | 'language_detected'
+  | 'lead_qualified'
+  | 'human_request'
+  // Advanced Triggers
+  | 'user_entered_flow'
+  | 'user_exited_flow'
+  | 'flow_goal_achieved'
+  | 'conversion_trigger'
+  | 'custom_event'
+  // Appointment Triggers
+  | 'appointment_booked'
+  | 'appointment_cancelled'
+  | 'appointment_rescheduled'
+  | 'appointment_completed'
+  | 'appointment_noshow';
 
 export type AutomationStepType =
   | 'send_message'
@@ -269,7 +336,45 @@ export type AutomationStepType =
   | 'wait'
   | 'condition'
   | 'send_webhook'
-  | 'close_conversation';
+  | 'close_conversation'
+  | 'google_calendar_create_event'
+  // --- Phase 1: Advanced Actions ---
+  | 'ai_agent'
+  | 'http_request'
+  | 'send_media'
+  | 'send_buttons'
+  | 'send_list_message'
+  | 'ai_reply'
+  | 'increase_lead_score'
+  | 'add_internal_note'
+  | 'move_pipeline_stage'
+  | 'trigger_automation'
+  | 'pause_flow'
+  | 'switch'
+  | 'delay_until'
+  | 'loop'
+  | 'split_traffic'
+  | 'goto_step'
+  | 'end_flow'
+  // Human Handoff
+  | 'assign_human_agent'
+  | 'notify_team'
+  | 'escalate_priority'
+  // Ecommerce
+  | 'create_order'
+  | 'send_payment_link'
+  | 'verify_payment'
+  | 'track_shipment'
+  | 'generate_invoice'
+  // Appointment Steps
+  | 'create_appointment'
+  | 'generate_token'
+  | 'check_availability'
+  | 'send_reminder'
+  | 'reschedule_appointment'
+  | 'cancel_booking'
+  | 'assign_agent'
+  | 'add_calendar_event';
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
@@ -352,6 +457,13 @@ export interface SendWebhookStepConfig {
   body_template?: string;
 }
 
+export interface GoogleCalendarCreateEventStepConfig {
+  summary: string;
+  description?: string;
+  start_delay_minutes?: number;
+  duration_minutes?: number;
+}
+
 export type AutomationStepConfig =
   | SendMessageStepConfig
   | SendTemplateStepConfig
@@ -362,8 +474,47 @@ export type AutomationStepConfig =
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig
+  | GoogleCalendarCreateEventStepConfig
+  // Phase 1: Advanced configs
+  | AIAgentStepConfig
+  | HttpRequestStepConfig
+  | SendMediaStepConfig
+  | SendButtonsStepConfig
+  | SendListMessageStepConfig
+  | IncreaseLeadScoreStepConfig
+  | AddInternalNoteStepConfig
+  | MovePipelineStageStepConfig
+  | TriggerAutomationStepConfig
+  | SwitchStepConfig
+  | SplitTrafficStepConfig
+  | LoopStepConfig
+  | DelayUntilStepConfig
+  | GotoStepConfig
+  | EscalatePriorityStepConfig
+  | NotifyTeamStepConfig
+  // Appointment Configs
+  | CreateAppointmentStepConfig
+  | GenerateTokenStepConfig
+  | CheckAvailabilityStepConfig
+  | SendReminderStepConfig
+  | RescheduleAppointmentStepConfig
+  | CancelBookingStepConfig
+  | AssignAgentStepConfig
+  | AddCalendarEventStepConfig
   | Record<string, never>
   | Record<string, unknown>;
+
+// ============================================================
+// Multi-trigger support
+// ============================================================
+
+export interface AutomationTrigger {
+  id?: string;
+  trigger_type: AutomationTriggerType;
+  trigger_config: AutomationTriggerConfig;
+  priority?: number;
+  enabled?: boolean;
+}
 
 export interface Automation {
   id: string;
@@ -372,11 +523,126 @@ export interface Automation {
   description?: string;
   trigger_type: AutomationTriggerType;
   trigger_config: AutomationTriggerConfig;
+  /** Additional triggers beyond the primary. Stored as JSONB in DB. */
+  triggers?: AutomationTrigger[];
   is_active: boolean;
   execution_count: number;
   last_executed_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================================
+// Phase 1: Advanced step config interfaces
+// ============================================================
+
+export interface AIAgentStepConfig {
+  prompt_template?: string;
+  temperature?: number;
+  max_tokens?: number;
+  /** Automatically send the AI suggested reply to customer. */
+  auto_reply?: boolean;
+  /** Apply CRM updates returned by AI (tags, scores). */
+  update_crm?: boolean;
+  /** Execute automation actions returned by AI. */
+  trigger_actions?: boolean;
+  provider?: string;
+  model?: string;
+  tone?: string;
+  enable_memory?: boolean;
+  enable_crm_context?: boolean;
+}
+
+export interface HttpRequestStepConfig {
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  body_template?: string;
+  /** Store the response body in workflow vars under this key. */
+  response_var_key?: string;
+  retry_count?: number;
+  timeout_ms?: number;
+}
+
+export interface SendMediaStepConfig {
+  media_type: 'image' | 'video' | 'document' | 'audio';
+  media_url: string;
+  caption?: string;
+}
+
+export interface SendButtonsStepConfig {
+  text: string;
+  buttons: Array<{ id: string; title: string }>;
+}
+
+export interface SendListMessageStepConfig {
+  text: string;
+  button_label: string;
+  sections: Array<{
+    title: string;
+    rows: Array<{ id: string; title: string; description?: string }>;
+  }>;
+}
+
+export interface IncreaseLeadScoreStepConfig {
+  amount: number;
+}
+
+export interface AddInternalNoteStepConfig {
+  note_text: string;
+}
+
+export interface MovePipelineStageStepConfig {
+  pipeline_id: string;
+  stage_id: string;
+  deal_id?: string;
+}
+
+export interface TriggerAutomationStepConfig {
+  target_automation_id: string;
+  pass_context?: boolean;
+}
+
+export interface SwitchStepConfig {
+  subject: ConditionSubject;
+  operand?: string;
+  cases: Array<{ value: string; label?: string }>;
+}
+
+export interface SplitTrafficStepConfig {
+  variants: Array<{ label: string; weight: number }>;
+}
+
+export interface LoopStepConfig {
+  max_iterations: number;
+  break_condition?: { subject: ConditionSubject; operand?: string; value?: string };
+}
+
+export interface DelayUntilStepConfig {
+  until_type: 'datetime' | 'field' | 'condition';
+  datetime?: string;
+  field?: string;
+  condition?: { subject: ConditionSubject; operand?: string; value?: string };
+}
+
+export interface GotoStepConfig {
+  target_step_cid: string;
+}
+
+export interface SendPaymentLinkStepConfig {
+  amount: number;
+  currency?: string;
+  description?: string;
+}
+
+export interface EscalatePriorityStepConfig {
+  level: 'high' | 'urgent' | 'critical';
+  reason?: string;
+}
+
+export interface NotifyTeamStepConfig {
+  message: string;
+  channel?: string;
 }
 
 export interface AutomationStep {
@@ -409,3 +675,111 @@ export interface AutomationLog {
   created_at: string;
   contact?: Contact;
 }
+
+// ============================================================
+// Appointment Booking Configs & Types
+// ============================================================
+
+export interface CreateAppointmentStepConfig {
+  service: string;
+  location?: string;
+  notes?: string;
+}
+
+export interface GenerateTokenStepConfig {
+  branch_prefix?: string;
+  reset_daily?: boolean;
+}
+
+export interface CheckAvailabilityStepConfig {
+  service: string;
+  location?: string;
+}
+
+export interface SendReminderStepConfig {
+  reminder_type: 'before_24h' | 'before_2h' | 'before_30m' | 'after_feedback' | 'after_review' | 'after_upsell';
+  template_name?: string;
+}
+
+export interface RescheduleAppointmentStepConfig {
+  notify_customer?: boolean;
+}
+
+export interface CancelBookingStepConfig {
+  reason?: string;
+}
+
+export interface AssignAgentStepConfig {
+  agent_id?: string;
+  mode?: 'specific' | 'round_robin';
+}
+
+export interface AddCalendarEventStepConfig {
+  summary: string;
+  description?: string;
+  duration_minutes?: number;
+}
+
+export interface AppointmentSlot {
+  id: string;
+  user_id: string;
+  slot_date: string;
+  start_time: string;
+  end_time: string;
+  is_booked: boolean;
+  capacity: number;
+  booked_count: number;
+  locked_until?: string | null;
+  locked_by_contact_id?: string | null;
+  location?: string | null;
+  created_at: string;
+}
+
+export interface AppointmentToken {
+  id: string;
+  user_id: string;
+  token_number: string;
+  sequence_number: number;
+  branch_prefix?: string | null;
+  created_at: string;
+}
+
+export interface Appointment {
+  id: string;
+  user_id: string;
+  contact_id: string;
+  service: string;
+  slot_id?: string | null;
+  appointment_date: string;
+  start_time: string;
+  end_time: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'rescheduled' | 'completed' | 'no_show' | 'waitlist';
+  token_id?: string | null;
+  agent_id?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  revenue?: number;
+  google_calendar_event_id?: string | null;
+  google_calendar_link?: string | null;
+  created_at: string;
+  updated_at: string;
+  contact?: Contact;
+}
+
+export interface AppointmentReminder {
+  id: string;
+  appointment_id: string;
+  reminder_type: 'before_24h' | 'before_2h' | 'before_30m' | 'after_feedback' | 'after_review' | 'after_upsell';
+  scheduled_at: string;
+  is_sent: boolean;
+  created_at: string;
+}
+
+export interface AppointmentLog {
+  id: string;
+  appointment_id: string;
+  action: string;
+  detail?: string | null;
+  created_at: string;
+}
+

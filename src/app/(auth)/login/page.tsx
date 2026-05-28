@@ -29,7 +29,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -38,6 +38,20 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
       return;
+    }
+
+    // Redirect super admins straight to their panel — they don't go through onboarding
+    if (authData?.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", authData.user.id)
+        .single();
+
+      if (profile?.role === "super_admin") {
+        router.push("/super-admin");
+        return;
+      }
     }
 
     router.push("/dashboard");
@@ -110,14 +124,8 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-primary hover:text-primary/80"
-            >
-              Create account
-            </Link>
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Access is by invitation only. Contact your administrator.
           </p>
         </CardContent>
       </Card>

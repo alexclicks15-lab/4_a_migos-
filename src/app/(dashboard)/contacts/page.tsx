@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useCompany } from '@/hooks/use-company';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -71,19 +72,26 @@ export default function ContactsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const { activeCompany } = useCompany();
+
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
 
   const fetchTags = useCallback(async () => {
-    const { data } = await supabase.from('tags').select('*');
+    if (!activeCompany) return;
+    const { data } = await supabase
+      .from('tags')
+      .select('*')
+      .eq('company_id', activeCompany.id);
     if (data) {
       const map: Record<string, Tag> = {};
       data.forEach((t) => (map[t.id] = t));
       setTagsMap(map);
     }
-  }, [supabase]);
+  }, [supabase, activeCompany]);
 
   const fetchContacts = useCallback(async () => {
+    if (!activeCompany) return;
     setLoading(true);
 
     const from = page * PAGE_SIZE;
@@ -92,6 +100,7 @@ export default function ContactsPage() {
     let query = supabase
       .from('contacts')
       .select('*', { count: 'exact' })
+      .eq('company_id', activeCompany.id)
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -138,7 +147,7 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, search, tagsMap]);
+  }, [supabase, page, search, tagsMap, activeCompany]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not

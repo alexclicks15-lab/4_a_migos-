@@ -20,6 +20,8 @@ interface MessageComposerProps {
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  text: string;
+  onTextChange: (val: string) => void;
 }
 
 export function MessageComposer({
@@ -29,8 +31,9 @@ export function MessageComposer({
   onOpenTemplates,
   replyTo,
   onClearReply,
+  text,
+  onTextChange,
 }: MessageComposerProps) {
-  const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,14 +52,14 @@ export function MessageComposer({
     setSending(true);
     try {
       onSend(trimmed, replyTo?.id);
-      setText("");
+      onTextChange("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
     } finally {
       setSending(false);
     }
-  }, [text, sending, sessionExpired, onSend, replyTo?.id]);
+  }, [text, sending, sessionExpired, onSend, replyTo?.id, onTextChange]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -70,10 +73,10 @@ export function MessageComposer({
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setText(e.target.value);
+      onTextChange(e.target.value);
       adjustHeight();
     },
-    [adjustHeight]
+    [adjustHeight, onTextChange]
   );
 
   return (

@@ -1,0 +1,99 @@
+[33m48791f8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m add sue
+[33m3420252[m fix: antigravity issue
+[33m4239955[m Merge pull request #135 from ArnasDon/docs/changelog
+[33mf40c6be[m docs: changelog for 0.2.0 (Flows + color themes + soft-GA)
+[33m515cf64[m Merge pull request #134 from ArnasDon/feat/flows-open-to-all
+[33m4e89b2b[m feat(flows): soft-GA — open to all users + Beta label
+[33mf3ccb00[m Merge pull request #133 from ArnasDon/feat/color-themes-full-sweep
+[33m32022c1[m feat(theme): sweep remaining violet-* → primary across all surfaces
+[33mdc3eac3[m Merge pull request #132 from ArnasDon/feat/color-themes
+[33m54a969c[m feat(settings): color theme picker (5 themes)
+[33m39b03f1[m Merge pull request #131 from ArnasDon/fix/flows-dialog-actually-wider
+[33mdf6c8e3[m fix(flows): create-flow dialog was still clamped to 384px — override sm: variant
+[33m6522b9b[m Merge pull request #130 from ArnasDon/fix/flows-sticky-validation
+[33m47836d2[m fix(flows): pin validation panel to viewport bottom while editing
+[33m87560e5[m Merge pull request #129 from ArnasDon/fix/flows-template-dialog-readability
+[33ma6cc847[m fix(flows): widen create-flow dialog so template cards are readable
+[33m9febfae[m Merge pull request #128 from ArnasDon/fix/flows-spurious-redirect
+[33m6fcf77d[m fix(flows): bounce-to-dashboard race when navigating into /flows
+[33m1a6419b[m Merge pull request #127 from ArnasDon/feat/flows-cron-timing-safe
+[33mce9c792[m Merge pull request #126 from ArnasDon/feat/flows-drop-reread-and-limit
+[33mdcaba6e[m Merge remote-tracking branch 'origin/main' into feat/flows-drop-reread-and-limit
+[33mfe4e011[m fix(flows): constant-time compare for cron secret
+[33m56ec96d[m perf(flows): drop wasted re-read after reprompt reset + defensive limit(1)
+[33m8ffb043[m Merge pull request #125 from ArnasDon/feat/flows-preload-nodes
+[33mdc58f71[m perf(flows): preload all flow_nodes once per dispatch
+[33m4b36813[m Merge pull request #124 from ArnasDon/feat/flows-atomic-execution-count
+[33me835386[m fix(flows): atomic execution_count increment via SECURITY DEFINER RPC
+[33m551a857[m Merge pull request #123 from ArnasDon/feat/flows-redact-reply-text
+[33m8ac764e[m fix(flows): redact customer text from reply_received event payload
+[33m9ff4a8d[m Merge pull request #122 from ArnasDon/feat/flows-unsaved-changes-guard
+[33m31bd967[m Merge remote-tracking branch 'origin/main' into feat/flows-unsaved-changes-guard
+[33m323e0f0[m Merge pull request #121 from ArnasDon/feat/flows-clickable-validation-issues
+[33mad91d20[m feat(flows): unsaved-changes indicator + reload guard
+[33mb95ce8b[m Merge pull request #120 from ArnasDon/feat/flows-node-card-previews
+[33medbbb89[m feat(flows): make validation issues clickable to jump to node
+[33m9c7f635[m Merge pull request #119 from ArnasDon/feat/flows-send-list-add-section
+[33m6079bf2[m feat(flows): show content preview in collapsed node cards
+[33m5a9a69a[m feat(flows): add multi-section support to send_list builder
+[33m7227802[m Merge pull request #118 from ArnasDon/feat/flows-hide-internal-keys
+[33m268ae70[m feat(flows): hide internal node_key + reply_id behind Advanced disclosure
+[33m4cb6849[m Merge pull request #117 from ArnasDon/feat/flows-templates-and-v1.5
+[33med15493[m feat(flows): templates + v1.5 nodes (collect_input/condition/set_tag) + run-history viewer (PR 4/4)
+[33mf9d13c4[m Merge pull request #115 from ArnasDon/feat/flows-builder-ui
+[33m4871d7a[m feat(flows): no-code builder UI + flows API + validator (PR 3/4)
+[33m2c029cb[m Merge pull request #114 from ArnasDon/feat/flows-runner
+[33md0b50f4[m feat(flows): runner engine + webhook integration + agent-handoff + cron sweep (PR 2/4)
+[33m66ef059[m Merge pull request #112 from ArnasDon/feat/flows-foundation-interactive-messages
+[33m208b096[m chore(flows): defensive gate on interactive bubble render
+[33mdc245d5[m feat(flows): foundation for interactive WhatsApp messages (PR 1/4)
+[33m981a164[m Merge pull request #113 from ArnasDon/feat/beta-features-flag
+[33m9c4a46d[m feat(beta): per-account beta_features flag on profiles, gating Flows
+[33ma701d93[m Merge pull request #111 from ArnasDon/feat/inbox-doodle-background
+[33m598ac7e[m feat(inbox): WhatsApp-style doodle background in the chat area
+[33mf758a3e[m Merge pull request #109 from ArnasDon/feat/inbox-manual-refresh-button
+[33mc35f2a1[m feat(inbox): add a refresh button to the conversation header
+[33m2b3393b[m Merge pull request #108 from ArnasDon/fix/inbox-unread-badge-clears-on-select
+[33m4e3bb70[m fix(inbox): clear unread badge instantly when opening a conversation
+[33m3de2da6[m Merge pull request #107 from ArnasDon/fix/inbox-realtime-permanent
+[33m138ae8d[m fix(inbox): replace broken updater-closure flag, add reconnect/visibility resync
+[33maecad2e[m Merge pull request #105 from ArnasDon/fix/inbox-realtime-hydrate-new-conversations
+[33m206e110[m fix(inbox): hydrate new conversations from realtime so they surface in the list
+[33mcac97fe[m Merge pull request #103 from ArnasDon/docs/deploy-on-hostinger-button
+[33m4ed9faf[m docs: add Deploy on Hostinger button to README
+[33me84f741[m Merge pull request #102 from ArnasDon/chore/changelog-migration-note
+[33mfaa128f[m docs: add CHANGELOG with migration-required note
+[33m3e9276b[m Merge pull request #101 from ArnasDon/feature/chat-action-fixes
+[33md41652d[m fix(inbox): scope hover to the bubble; fix stale-closure reaction flow
+[33ma1348eb[m Merge pull request #100 from ArnasDon/feature/chat-actions
+[33m339b1fe[m feat(inbox): reactions, reply-to, and copy on chat messages
+[33mbf14934[m Merge pull request #96 from ArnasDon/dependabot/npm_and_yarn/types-68ebe471cf
+[33m4e333af[m Merge pull request #97 from ArnasDon/dependabot/npm_and_yarn/dev-dependencies-4f40fd48be
+[33mfee1da3[m Merge pull request #98 from ArnasDon/dependabot/npm_and_yarn/tailwind-merge-3.6.0
+[33mee2af6d[m Merge pull request #95 from ArnasDon/dependabot/npm_and_yarn/supabase-10427234a2
+[33mc718c62[m chore(deps): bump tailwind-merge from 3.5.0 to 3.6.0
+[33m0926dde[m chore(deps-dev): bump the dev-dependencies group with 2 updates
+[33m24989d4[m chore(deps-dev): bump @types/node in the types group
+[33m4bbb30f[m chore(deps): bump @supabase/supabase-js in the supabase group
+[33mfa01210[m Merge pull request #94 from ArnasDon/security/override-transitive-vulns
+[33m06ef8f2[m Override transitive vulns: postcss, ip-address, fast-uri, hono
+[33m66d9d9e[m Merge pull request #93 from ArnasDon/security/bump-next-16.2.6
+[33m742d9e0[m Bump next 16.2.4 → 16.2.6 (security)
+[33me80189e[m Merge pull request #92 from ArnasDon/test/foundational-vitest-suite
+[33mdb11f76[m test: foundational Vitest suite for security + critical pure logic
+[33m6820314[m Merge pull request #90 from ArnasDon/feat/inbox-template-picker
+[33mfbb95eb[m Merge branch 'main' of https://github.com/ArnasDon/wacrm into feat/inbox-template-picker
+[33m149a4e6[m Merge pull request #91 from ArnasDon/chore/remove-broadcast-schedule-stub
+[33mac55c74[m Merge pull request #89 from ArnasDon/fix/inbox-assign-button
+[33m8d83220[m chore(broadcasts): drop the inert Schedule for Later tile
+[33m2a86781[m feat(inbox): wire up the template picker dialog
+[33m5d0944e[m feat(inbox): wire conversation assignment dropdown
+[33m1e6d70a[m Merge pull request #88 from ArnasDon/chore/extract-marketing-site
+[33m15a05eb[m Extract marketing site to ArnasDon/wacrm-site
+[33ma501b95[m Merge pull request #79 from ArnasDon/dependabot/npm_and_yarn/typescript-6.0.3
+[33mf92b686[m Merge pull request #80 from ArnasDon/dependabot/npm_and_yarn/base-ui/react-1.4.1
+[33m8527c6a[m Merge pull request #87 from ArnasDon/dependabot/npm_and_yarn/supabase-cc07b7ee10
+[33maa9e954[m chore(deps): bump the supabase group across 1 directory with 2 updates
+[33ma54a737[m Merge pull request #77 from ArnasDon/dependabot/npm_and_yarn/types/node-25.6.0
+[33mc98d382[m Merge pull request #74 from ArnasDon/dependabot/github_actions/actions/checkout-6
+[33m3e06698[m Mer

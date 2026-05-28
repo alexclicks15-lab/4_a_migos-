@@ -21,6 +21,7 @@ import {
   Clock,
   ArrowLeft,
   RefreshCw,
+  Brain,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -147,9 +148,12 @@ export function MessageThread({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+const conversationId = conversation?.id;
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   // Purely visual spin state for the manual-refresh button. The actual
   // refetch is fire-and-forget through `onRefresh` (which bumps the
   // parent's resyncToken); the 700ms spin is just feedback so the click
@@ -173,6 +177,84 @@ export function MessageThread({
     }, 700);
   }, [isRefreshing, onRefresh]);
   const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
+  const [composerText, setComposerText] = useState("");
+  const [latestAiLog, setLatestAiLog] = useState<any>(null);
+
+  // Fetch the latest AI log for the conversation
+  useEffect(() => {
+    if (!conversationId) {
+      setLatestAiLog(null);
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from('ai_automation_logs')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setLatestAiLog(data);
+        } else {
+          setLatestAiLog(null);
+        }
+      });
+  }, [conversationId, messages.length]);
+
+  const showSuggestion = useMemo(() => {
+    if (!latestAiLog || !messages.length) return false;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.sender_type !== 'customer') return false;
+    return lastMsg.content_text?.trim().toLowerCase() === latestAiLog.message_text?.trim().toLowerCase();
+  }, [latestAiLog, messages]);
+
+  // Fetch AI Config for current conversation
+  useEffect(() => {
+    if (!conversationId) return;
+    const supabase = createClient();
+    supabase
+      .from('ai_conversations')
+      .select('enabled')
+      .eq('conversation_id', conversationId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setAiEnabled(data.enabled);
+        } else {
+          setAiEnabled(true); // default to true if no config row exists
+        }
+      });
+  }, [conversationId]);
+
+  const handleToggleAi = useCallback(async () => {
+    if (!conversationId || !user?.id) return;
+    setAiLoading(true);
+    const nextVal = !aiEnabled;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('ai_conversations')
+      .upsert(
+        {
+          conversation_id: conversationId,
+          enabled: nextVal,
+          user_id: user.id,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'conversation_id' }
+      );
+
+    if (error) {
+      console.error('[ai-agent] Failed to toggle AI state:', error);
+      toast.error('Failed to update AI state');
+    } else {
+      setAiEnabled(nextVal);
+      toast.success(nextVal ? 'AI Copilot Activated' : 'AI Copilot Paused');
+      if (onRefresh) onRefresh();
+    }
+    setAiLoading(false);
+  }, [conversationId, aiEnabled, user?.id, onRefresh]);
 
   // Profiles are bounded by RLS to rows the current user is allowed to
   // see — today that's just the current user, but the dropdown keeps the
@@ -236,7 +318,7 @@ export function MessageThread({
     onMessagesLoadedRef.current = onMessagesLoaded;
   });
 
-  const conversationId = conversation?.id;
+  // const conversationId = conversation?.id; // duplicate removed
   const hasUnread = (conversation?.unread_count ?? 0) > 0;
 
   // Fetch messages whenever the selected conversation changes. Kept
@@ -385,6 +467,7 @@ export function MessageThread({
   // a quote pulled from conversation A shouldn't bleed into conversation B.
   useEffect(() => {
     setReplyTo(null);
+    setComposerText("");
   }, [conversationId]);
 
   // Reset the server-side unread_count to 0 whenever an unread count
@@ -743,6 +826,24 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* AI Copilot toggle button */}
+          {conversation && (
+            <button
+              type="button"
+              onClick={handleToggleAi}
+              disabled={aiLoading}
+              title={aiEnabled ? "Click to pause AI responses" : "Click to activate AI responses"}
+              className={cn(
+                "inline-flex items-center justify-center h-7 gap-1 px-2.5 text-xs font-semibold rounded-md border transition-colors cursor-pointer mr-1",
+                aiEnabled
+                  ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20"
+                  : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-white"
+              )}
+            >
+              <Brain className="h-3.5 w-3.5" />
+              <span>{aiEnabled ? "AI Active" : "AI Paused"}</span>
+            </button>
+          )}
           {/* Manual refresh — forces a refetch of the messages + the
               conversation list (the parent bumps its resyncToken). Useful
               when realtime missed an event or the agent just wants to be
@@ -920,6 +1021,82 @@ export function MessageThread({
         )}
       </div>
 
+      {/* AI Recommendations Panel */}
+      {showSuggestion && latestAiLog && (
+        <div className="mx-4 my-2 overflow-hidden rounded-xl border border-purple-500/20 bg-slate-900/60 p-4 shadow-lg shadow-purple-500/5 backdrop-blur-md transition-all duration-300">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-md bg-purple-500/10 text-purple-400 flex items-center justify-center animate-pulse">
+                  <Brain className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-xs font-bold text-white">AI Co-pilot Recommendation</span>
+                <Badge variant="outline" className="border-purple-500/20 bg-purple-500/10 text-[10px] font-bold text-purple-400 capitalize">
+                  Intent: {latestAiLog.intent_detected?.replace(/_/g, ' ') || 'General'} ({(latestAiLog.confidence * 100).toFixed(0)}%)
+                </Badge>
+                {latestAiLog.lead_score_after !== undefined && latestAiLog.lead_score_before !== undefined && (
+                  <span className={cn(
+                    "text-[9px] font-extrabold px-1.5 py-0.5 rounded border tracking-wider shrink-0 uppercase",
+                    latestAiLog.lead_score_after > latestAiLog.lead_score_before
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : latestAiLog.lead_score_after < latestAiLog.lead_score_before
+                      ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                      : "bg-slate-800 text-slate-400 border-slate-700"
+                  )}>
+                    Score: {latestAiLog.lead_score_after} ({latestAiLog.lead_score_after - latestAiLog.lead_score_before >= 0 ? '+' : ''}{latestAiLog.lead_score_after - latestAiLog.lead_score_before})
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Extracted Entities */}
+            {latestAiLog.entities_extracted && Object.keys(latestAiLog.entities_extracted).length > 0 && (
+              <div className="flex flex-wrap gap-1 items-center mt-1">
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mr-1">Extracted Data:</span>
+                {Object.entries(latestAiLog.entities_extracted)
+                  .filter(([_, v]) => v !== undefined && v !== null && v !== "")
+                  .map(([k, v]) => (
+                    <span key={k} className="text-[10px] bg-slate-800 text-slate-350 border border-slate-700/60 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-slate-500 lowercase">{k}:</span> {String(v)}
+                    </span>
+                  ))}
+              </div>
+            )}
+
+            {/* Suggested Reply text */}
+            {latestAiLog.response_text && (
+              <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
+                <p className="text-xs italic leading-relaxed text-slate-300 whitespace-pre-wrap">
+                  "{latestAiLog.response_text}"
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="mt-2 flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setComposerText(latestAiLog.response_text || "")}
+                className="px-3.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-semibold hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+              >
+                Edit Reply
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (latestAiLog.response_text) {
+                    void handleSend(latestAiLog.response_text);
+                  }
+                }}
+                className="px-4 py-1.5 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-700 transition-colors shadow-sm shadow-purple-600/20 cursor-pointer"
+              >
+                Send AI Reply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}
@@ -928,6 +1105,8 @@ export function MessageThread({
         onOpenTemplates={handleOpenTemplates}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
+        text={composerText}
+        onTextChange={setComposerText}
       />
 
       <TemplatePicker
